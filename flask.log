@@ -2,9 +2,17 @@
 WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
  * Running on all addresses (0.0.0.0)
  * Running on http://127.0.0.1:80
- * Running on http://172.19.140.214:80
+ * Running on http://198.18.0.1:80
 Press CTRL+C to quit
-127.0.0.1 - - [30/May/2025 10:27:32] "GET /login HTTP/1.1" 200 -
-127.0.0.1 - - [30/May/2025 10:27:33] "GET /favicon.ico HTTP/1.1" 200 -
-127.0.0.1 - - [30/May/2025 10:28:22] "GET /login HTTP/1.1" 200 -
-127.0.0.1 - - [30/May/2025 10:28:22] "GET /favicon.ico HTTP/1.1" 304 -
+127.0.0.1 - - [02/Jun/2025 21:55:00] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [02/Jun/2025 21:55:01] "GET /favicon.ico HTTP/1.1" 200 -
+127.0.0.1 - - [02/Jun/2025 21:55:12] "POST /login HTTP/1.1" 302 -
+127.0.0.1 - - [02/Jun/2025 21:55:12] "GET /doctor/dashboard HTTP/1.1" 200 -
+127.0.0.1 - - [02/Jun/2025 21:55:12] "GET /static/css/clinical_theme.css HTTP/1.1" 200 -
+127.0.0.1 - - [02/Jun/2025 21:55:12] "GET /static/js/clinical_theme.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Jun/2025 21:55:16] "GET /doctor/analysis_tools HTTP/1.1" 200 -
+127.0.0.1 - - [02/Jun/2025 21:55:16] "GET /static/css/clinical_theme.css HTTP/1.1" 304 -
+127.0.0.1 - - [02/Jun/2025 21:55:16] "GET /static/js/clinical_theme.js HTTP/1.1" 304 -
+127.0.0.1 - - [02/Jun/2025 21:55:24] "GET /doctor/my_datasets HTTP/1.1" 200 -
+127.0.0.1 - - [02/Jun/2025 21:55:24] "GET /static/css/clinical_theme.css HTTP/1.1" 304 -
+127.0.0.1 - - [02/Jun/2025 21:55:24] "GET /static/js/clinical_theme.js HTTP/1.1" 304 -
