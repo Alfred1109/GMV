@@ -1,0 +1,2238 @@
+{% extends "clinical_base.html" %}
+
+{% block title %}数据集管理 - 医学临床科研专病数据管理平台{% endblock %}
+
+{% block sidebar %}
+<!-- 这里不添加侧边栏内容，以便主内容区域能够占据更多空间 -->
+{% endblock %}
+
+{% block content %}
+<!-- 添加自定义样式 -->
+<style>
+/* 覆盖基础模板中的样式，确保内容居中 */
+.col-md-9.col-lg-10.clinical-content {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+    padding: 15px !important;
+}
+
+/* 隐藏侧边栏 */
+.col-md-3.col-lg-2.clinical-sidebar {
+    display: none !important;
+}
+
+.dashboard-container {
+    width: 90%;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0 20px;
+    box-sizing: border-box;
+    max-width: 1800px;
+}
+
+/* 确保页面内容在任何缩放比例下都居中 */
+@media (min-width: 1200px) {
+    .dashboard-container {
+        width: 90%;
+    }
+}
+
+@media (min-width: 992px) and (max-width: 1199px) {
+    .dashboard-container {
+        width: 95%;
+    }
+}
+
+@media (max-width: 991px) {
+    .dashboard-container {
+        width: 98%;
+    }
+}
+
+.clinical-button-icon {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.clinical-button-icon i {
+    font-size: 1.1rem;
+}
+
+.clinical-button-danger {
+    background-color: #dc3545;
+    color: white;
+}
+
+.clinical-button-danger:hover {
+    background-color: #c82333;
+    color: white;
+}
+</style>
+
+<div class="dashboard-container">
+    <div class="content-title text-center">
+    数据集管理 <i class="bi bi-collection-fill info-icon"></i>
+    <div class="float-end">
+        <a href="{{ url_for('create_dataset') }}" class="clinical-button">
+            <i class="bi bi-plus-circle me-1"></i>创建数据集
+        </a>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+    <!-- 数据集列表 -->
+    <div class="clinical-info-box dashboard-box" style="flex: 1 1 100%;">
+        <div class="info-box-title">
+            数据集列表
+        </div>
+        <div class="info-box-content">
+            {% if datasets %}
+            <div class="table-responsive">
+                <table class="clinical-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>名称</th>
+                            <th>版本</th>
+                            <th>创建者</th>
+                            <th>创建时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for dataset in datasets %}
+                        <tr>
+                            <td>{{ dataset.id }}</td>
+                            <td>{{ dataset.name }}</td>
+                            <td>v{{ dataset.version }}</td>
+                            <td>
+                                {% if dataset.created_by %}
+                                    {{ dataset.created_by }}
+                                {% else %}
+                                    系统
+                                {% endif %}
+                            </td>
+                            <td>{{ dataset.created_at.strftime('%Y-%m-%d') }}</td>
+                            <td>
+                                <a href="{{ url_for('doctor_view_dataset', dataset_id=dataset.id) }}" class="clinical-button">查看</a>
+                                <button class="clinical-button" onclick="showDatasetDetails('{{ dataset.id }}')">详情</button>
+                                <button class="clinical-button" onclick="showEditFieldsModal('{{ dataset.id }}', '{{ dataset.name }}')">编辑字段</button>
+                                <button class="clinical-button clinical-button-primary" onclick="showImportDataModal('{{ dataset.id }}', '{{ dataset.name }}')">导入数据</button>
+                                <button class="clinical-button clinical-button-icon clinical-button-danger" onclick="confirmClearDataset('{{ dataset.id }}', '{{ dataset.name }}')" title="强制清空数据"><i class="bi bi-trash-fill"></i></button>
+                                <button class="clinical-button clinical-button-icon clinical-button-danger" onclick="confirmDeleteDataset('{{ dataset.id }}', '{{ dataset.name }}')" title="删除数据集"><i class="bi bi-x-circle-fill"></i></button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center p-4">
+                <div class="mb-3">
+                    <i class="bi bi-collection-x" style="font-size: 3rem; color: #6c757d;"></i>
+                </div>
+                <p>还没有创建数据集</p>
+                <a href="{{ url_for('create_dataset') }}" class="clinical-button">
+                    <i class="bi bi-plus-circle me-1"></i>创建数据集
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- 数据集使用统计 -->
+    <div class="clinical-info-box dashboard-box">
+        <div class="info-box-title">
+            数据集使用统计
+        </div>
+        <div class="info-box-content">
+            {% set total_projects = 0 %}
+            {% for dataset in datasets %}
+                {% set total_projects = total_projects + dataset.projects|length %}
+            {% endfor %}
+            <div class="text-center mb-4">
+                <div class="stat-box">
+                    <div class="stat-value">{{ datasets|length }}</div>
+                    <div class="stat-label">总数据集数量</div>
+                </div>
+            </div>
+            
+            <div class="enrollment-progress mb-3">
+                <div class="enrollment-bar" style="width: 75%">
+                    使用率: 75%
+                </div>
+            </div>
+            
+            <div class="text-center mt-4">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="stat-box">
+                            <div class="stat-value">{{ total_projects }}</div>
+                            <div class="stat-label">相关项目</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="stat-box">
+                            <div class="stat-value">{{ datasets|selectattr('version', 'equalto', '1.0')|list|length }}</div>
+                            <div class="stat-label">初始版本数据集</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 热门数据集 -->
+    <div class="clinical-info-box dashboard-box">
+        <div class="info-box-title">
+            热门数据集
+        </div>
+        <div class="info-box-content">
+            {% if datasets %}
+            <table class="clinical-table">
+                <thead>
+                    <tr>
+                        <th>数据集名称</th>
+                        <th>使用项目数</th>
+                        <th>版本</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% set sorted_datasets = [] %}
+                    {% for dataset in datasets %}
+                        {% set project_count = dataset.projects|length %}
+                        {% set _ = sorted_datasets.append((dataset, project_count)) %}
+                    {% endfor %}
+                    
+                    {% set sorted_datasets = sorted_datasets|sort(reverse=true, attribute='1') %}
+                    
+                    {% for dataset_item in sorted_datasets[:5] %}
+                        {% set dataset = dataset_item[0] %}
+                        {% set project_count = dataset_item[1] %}
+                        <tr>
+                            <td>{{ dataset.name }}</td>
+                            <td>{{ project_count }}</td>
+                            <td>v{{ dataset.version }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="text-center p-3">暂无数据</p>
+            {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 数据集详情模态框 -->
+<div class="modal fade" id="datasetDetailsModal" tabindex="-1" aria-labelledby="datasetDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="datasetDetailsModalLabel">数据集详情</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="datasetDetailsContent">
+                    <!-- 内容将通过JS加载 -->
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 编辑字段模态框 -->
+<div class="modal fade" id="editFieldsModal" tabindex="-1" aria-labelledby="editFieldsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editFieldsModalLabel">编辑数据集字段</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="editFieldsContent">
+                    <div class="text-center mb-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                    </div>
+                    
+                    <form id="editFieldsForm">
+                        <input type="hidden" id="editDatasetId" name="dataset_id">
+                        
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6>数据集字段列表</h6>
+                                <div>
+                                    <button type="button" class="btn btn-sm btn-outline-primary me-2" id="addFieldBtn">
+                                        <i class="bi bi-plus-circle"></i> 添加字段
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary me-2" id="batchAddBtn">
+                                        <i class="bi bi-list-ul"></i> 批量添加
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" id="clearFieldsBtn">
+                                        <i class="bi bi-trash"></i> 清空字段
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="customFieldsContainer" class="mb-4">
+                            <!-- 字段项将在这里动态添加 -->
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="saveFieldsBtn">保存字段</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 批量添加字段模态框 -->
+<div class="modal fade" id="batchFieldsModal" tabindex="-1" aria-labelledby="batchFieldsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="batchFieldsModalLabel">批量添加字段</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>请按照以下格式输入字段定义，每行一个字段：</p>
+                <p><code>字段名,类型,描述,取值范围,自定编码,规范编码,其他属性,字段分组</code></p>
+                <p>例如：<code>姓名,text,患者姓名,,NAME,MR.NAME,required,基本信息</code></p>
+                <p>支持的类型：text, number, date, boolean, enum</p>
+                <p>字段分组：用于将相关字段归类在一起，如"基本信息"、"生命体征"、"检验结果"等</p>
+                
+                <div class="mb-3">
+                    <label for="batchFieldsText" class="form-label">字段定义</label>
+                    <textarea class="form-control" id="batchFieldsText" rows="10" placeholder="字段名,类型,描述,取值范围,自定编码,规范编码,其他属性"></textarea>
+                </div>
+                
+                <div class="d-flex justify-content-between">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="importTemplateBtn">
+                        <i class="bi bi-download"></i> 下载模板
+                    </button>
+                    <button type="button" class="btn btn-outline-info btn-sm" id="pasteExampleBtn">
+                        <i class="bi bi-clipboard"></i> 粘贴示例
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="importFieldsBtn">导入字段</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 清空数据集确认模态框 -->
+<div class="modal fade" id="clearDatasetModal" tabindex="-1" aria-labelledby="clearDatasetModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="clearDatasetModalLabel">强制清空数据集</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    <strong>警告：此操作不可恢复</strong>
+                </div>
+                <p>您正在请求强制清空数据集：<strong id="clearDatasetName"></strong></p>
+                <p>清空操作将：</p>
+                <ul>
+                    <li>删除数据集中的<strong>所有数据记录</strong></li>
+                    <li>保留数据集的结构定义和字段设置</li>
+                    <li>此操作<strong>不可逆转</strong>，请谨慎操作</li>
+                </ul>
+                <div class="mb-3">
+                    <label for="clearDatasetConfirm" class="form-label">请输入 "CONFIRM" 确认操作：</label>
+                    <input type="text" class="form-control" id="clearDatasetConfirm" placeholder="CONFIRM">
+                </div>
+                <input type="hidden" id="clearDatasetId">
+                
+                <div id="clearErrorMessage" class="alert alert-warning d-none mt-3">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <span id="clearErrorText"></span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" id="confirmClearBtn" disabled>确认清空</button>
+                <button type="button" class="btn btn-outline-danger d-none" id="directFormSubmitBtn" disabled>备选方案: 直接提交</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 导入数据模态框 -->
+<div class="modal fade" id="importDataModal" tabindex="-1" aria-labelledby="importDataModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="importDataModalLabel">导入数据</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    导入数据前，请确保您的数据格式正确，并且已定义相应的字段。
+                </div>
+                
+                <form id="importDataForm" enctype="multipart/form-data">
+                    <input type="hidden" id="importDatasetId" name="dataset_id">
+                    
+                    <div class="mb-3">
+                        <label for="importFile" class="form-label">选择数据文件</label>
+                        <input type="file" class="form-control" id="importFile" name="import_file" accept=".csv,.xlsx,.xls" required>
+                        <div class="form-text">支持CSV、Excel文件格式</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">导入选项</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="detectDuplicates" name="detect_duplicates" checked>
+                            <label class="form-check-label" for="detectDuplicates">
+                                检测并防止重复数据导入
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="skipHeader" name="skip_header" checked>
+                            <label class="form-check-label" for="skipHeader">
+                                跳过第一行（表头）
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">唯一标识符字段（用于检测重复）</label>
+                        <select class="form-select" id="uniqueIdentifierField" name="unique_identifier">
+                            <option value="">-- 请选择 --</option>
+                            <!-- 字段列表将通过JavaScript动态加载 -->
+                        </select>
+                        <div class="form-text">选择一个用于唯一标识记录的字段，如"病例号"、"ID"等</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">重复数据处理策略</label>
+                        <select class="form-select" id="duplicateStrategy" name="duplicate_strategy">
+                            <option value="skip">跳过重复数据</option>
+                            <option value="update">更新重复数据</option>
+                            <option value="keep_both">保留两者（添加标记）</option>
+                        </select>
+                    </div>
+                </form>
+                
+                <div id="importPreviewArea" class="mt-4 d-none">
+                    <h6>数据预览</h6>
+                    <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
+                        <table class="table table-sm table-bordered" id="importPreviewTable">
+                            <!-- 预览数据将在这里显示 -->
+                        </table>
+                    </div>
+                    
+                    <div id="importSummary" class="alert alert-info mt-2">
+                        <!-- 导入摘要信息 -->
+                    </div>
+                </div>
+                
+                <div id="importProgressArea" class="mt-3 d-none">
+                    <div class="progress">
+                        <div id="importProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <p class="text-center mt-2" id="importProgressText">准备导入...</p>
+                </div>
+                
+                <div id="importResultArea" class="mt-3 d-none">
+                    <!-- 导入结果将在这里显示 -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="previewDataBtn">预览数据</button>
+                <button type="button" class="btn btn-success d-none" id="confirmImportBtn">确认导入</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 在页面底部添加删除数据集确认模态框 -->
+<div class="modal fade" id="deleteDatasetModal" tabindex="-1" aria-labelledby="deleteDatasetModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteDatasetModalLabel">删除数据集</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    <strong>警告：此操作不可恢复！</strong>
+                </div>
+                <p>确定要删除数据集：<strong id="deleteDatasetName"></strong> 吗？</p>
+                <input type="hidden" id="deleteDatasetId">
+                <div id="deleteDatasetError" class="alert alert-warning d-none mt-2"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteDatasetBtn">确认删除</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+    .field-list-container {
+        max-height: 300px;
+        overflow-y: auto;
+        margin-bottom: 20px;
+        border: 1px solid #e9ecef;
+        border-radius: 5px;
+    }
+    
+    .field-list-container .table {
+        margin-bottom: 0;
+    }
+    
+    .field-list-container thead th {
+        position: sticky;
+        top: 0;
+        background-color: #f8f9fa;
+        z-index: 1;
+    }
+    
+    .badge.bg-info {
+        background-color: #17a2b8 !important;
+    }
+    
+    .badge.bg-secondary {
+        background-color: #6c757d !important;
+    }
+    
+    .badge.bg-danger {
+        background-color: #dc3545 !important;
+    }
+    
+    .custom-field-item {
+        background-color: #f8f9fa;
+        transition: all 0.2s;
+    }
+    
+    .custom-field-item:hover {
+        background-color: #e9ecef;
+    }
+    
+    .clinical-button-danger {
+        background-color: #dc3545;
+        color: white;
+    }
+    
+    .clinical-button-danger:hover {
+        background-color: #c82333;
+        color: white;
+    }
+    
+    .clinical-button-primary {
+        background-color: #007bff;
+        color: white;
+    }
+    
+    .clinical-button-primary:hover {
+        background-color: #0069d9;
+        color: white;
+    }
+    
+    .import-summary-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 5px;
+    }
+    
+    .duplicate-record {
+        background-color: #fff3cd;
+    }
+    
+    .new-record {
+        background-color: #d1e7dd;
+    }
+    
+    .table-group-header {
+        background-color: #f8f9fa;
+    }
+    
+    .table-group-name {
+        font-size: 1.05em;
+        color: #495057;
+        padding: 0.5rem 0.75rem;
+    }
+    
+    /* 字段分组相关样式 */
+    input[name="field_groups[]"] {
+        border-left: 3px solid #6c757d;
+    }
+    
+    .custom-field-item {
+        border-left: 3px solid transparent;
+        transition: border-color 0.3s;
+    }
+    
+    .custom-field-item:hover {
+        border-left-color: #007bff;
+    }
+</style>
+<script>
+    // 获取CSRF令牌函数
+    function getCsrfToken() {
+        // 首先尝试从meta标签获取
+        const metaToken = document.querySelector('meta[name="csrf-token"]');
+        if (metaToken && metaToken.getAttribute('content')) {
+            return metaToken.getAttribute('content');
+        }
+        
+        // 然后尝试从任何CSRF隐藏字段获取
+        const inputToken = document.querySelector('input[name="csrf_token"]');
+        if (inputToken && inputToken.value) {
+            return inputToken.value;
+        }
+        
+        // 最后尝试从cookie获取（如果Flask配置了将CSRF令牌存储在cookie中）
+        const csrfCookie = document.cookie.split(';').find(c => c.trim().startsWith('csrf_token='));
+        if (csrfCookie) {
+            return csrfCookie.split('=')[1].trim();
+        }
+        
+        console.warn('无法获取CSRF令牌，请检查页面配置');
+        return '';
+    }
+
+    // 转义HTML特殊字符，防止XSS攻击
+    function escapeHtml(unsafe) {
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+    
+    function showDatasetDetails(datasetId) {
+        // 显示模态框
+        var modal = new bootstrap.Modal(document.getElementById('datasetDetailsModal'));
+        modal.show();
+        
+        // 获取数据集详情
+        fetch(`/api/datasets/${datasetId}/info`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('获取数据集信息失败');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    // 获取数据集条目数
+                    fetch(`/api/datasets/${datasetId}/entries`)
+                        .then(response => response.json())
+                        .then(entriesData => {
+                            let entriesCount = 0;
+                            let dataSources = [];
+                            
+                            if (entriesData.success && entriesData.entries) {
+                                entriesCount = entriesData.entries.length;
+                            }
+                            
+                            // 获取字段信息
+                            let customFields = [];
+                            try {
+                                if (data.custom_fields) {
+                                    customFields = JSON.parse(data.custom_fields);
+                                }
+                            } catch (e) {
+                                console.error('解析自定义字段失败', e);
+                            }
+                            
+                            // 渲染数据集详情
+            document.getElementById('datasetDetailsContent').innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>基本信息</h6>
+                        <table class="table">
+                            <tr>
+                                <th>ID:</th>
+                                                <td>${data.id}</td>
+                            </tr>
+                            <tr>
+                                <th>名称:</th>
+                                                <td>${data.name}</td>
+                            </tr>
+                            <tr>
+                                <th>版本:</th>
+                                                <td>v${data.version}</td>
+                            </tr>
+                            <tr>
+                                <th>创建时间:</th>
+                                                <td>${data.created_at}</td>
+                                            </tr>
+                                            <tr>
+                                                <th>最后更新:</th>
+                                                <td>${data.updated_at || data.created_at}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>数据统计</h6>
+                        <table class="table">
+                            <tr>
+                                <th>记录数:</th>
+                                                <td>${data.size || entriesCount || 0}</td>
+                            </tr>
+                            <tr>
+                                <th>字段数:</th>
+                                                <td>${customFields.length || 0}</td>
+                            </tr>
+                            <tr>
+                                                <th>隐私级别:</th>
+                                                <td>${data.privacy_level || '公开'}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+                <hr>
+                                <h6>字段列表</h6>
+                                ${customFields.length > 0 ? `
+                                <div class="table-responsive field-list-container">
+                                    <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                                                <th>字段名称</th>
+                            <th>类型</th>
+                                                <th>描述</th>
+                                                <th>是否必填</th>
+                                                <th>分组</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                                            ${(() => {
+                                                // 按分组对字段进行分类
+                                                const groupedFields = {};
+                                                customFields.forEach(field => {
+                                                    // 确保正确获取分组字段，无论它是如何命名的
+                                                    const group = field.group || field.field_group || '未分组';
+                                                    if (!groupedFields[group]) {
+                                                        groupedFields[group] = [];
+                                                    }
+                                                    groupedFields[group].push(field);
+                                                });
+                                                
+                                                // 生成表格行，为每个分组添加标题行
+                                                let tableRows = '';
+                                                Object.keys(groupedFields).sort().forEach(group => {
+                                                    // 添加分组标题行
+                                                    tableRows += `
+                                                        <tr class="table-group-header">
+                                                            <td colspan="5" class="table-group-name bg-light">
+                                                                <i class="bi bi-folder me-2"></i><strong>${group}</strong>
+                                                            </td>
+                                                        </tr>
+                                                    `;
+                                                    
+                                                    // 添加该分组的字段
+                                                    groupedFields[group].forEach(field => {
+                                                        tableRows += `
+                                                            <tr>
+                                                                <td><strong>${field.name || field.field_name || ''}</strong></td>
+                                                                <td><span class="badge bg-info">${field.type || field.field_type || '文本'}</span></td>
+                                                                <td>${field.description || field.field_description || '无描述'}</td>
+                                                                <td>${field.required ? '<span class="badge bg-danger">必填</span>' : '<span class="badge bg-secondary">选填</span>'}</td>
+                                                                <td><span class="badge bg-dark">${field.group || field.field_group || '未分组'}</span></td>
+                                                            </tr>
+                                                        `;
+                                                    });
+                                                });
+                                                
+                                                return tableRows;
+                                            })()}
+                    </tbody>
+                </table>
+                                </div>
+                                ` : `
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    该数据集尚未定义字段。字段用于定义数据集中每条记录的结构，包括字段名称、类型和描述等。
+                                    <div class="mt-2">
+                                        <small>您可以通过编辑数据集来添加字段，或者导入数据时自动生成字段结构。</small>
+                                    </div>
+                                </div>
+                                `}
+                                
+                                ${data.description ? `
+                                <hr>
+                                <h6>数据集描述</h6>
+                                <div class="p-2 border rounded">
+                                    ${data.description}
+                                </div>` : ''}
+                            `;
+                        })
+                        .catch(error => {
+                            console.error('获取数据集条目失败:', error);
+                            // 显示错误信息
+                            document.getElementById('datasetDetailsContent').innerHTML = `
+                                <div class="alert alert-danger">
+                                    获取数据集条目信息失败: ${error.message}
+                                </div>
+                            `;
+                        });
+                } else {
+                    // 显示错误信息
+                    document.getElementById('datasetDetailsContent').innerHTML = `
+                        <div class="alert alert-danger">
+                            ${data.message || '获取数据集信息失败'}
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('获取数据集详情失败:', error);
+                // 显示错误信息
+                document.getElementById('datasetDetailsContent').innerHTML = `
+                    <div class="alert alert-danger">
+                        获取数据集详情失败: ${error.message}
+                    </div>
+                `;
+            });
+    }
+    
+    function showEditFieldsModal(datasetId, datasetName) {
+        // 显示模态框
+        var modal = new bootstrap.Modal(document.getElementById('editFieldsModal'));
+        document.getElementById('editFieldsModalLabel').textContent = `编辑数据集字段: ${datasetName}`;
+        document.getElementById('editDatasetId').value = datasetId;
+        
+        // 清空字段容器
+        const customFieldsContainer = document.getElementById('customFieldsContainer');
+        customFieldsContainer.innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">加载中...</span>
+                </div>
+                <p>正在加载字段数据...</p>
+            </div>
+        `;
+        
+        modal.show();
+        
+        // 获取数据集字段
+        fetch(`/api/datasets/${datasetId}/info`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('获取数据集信息失败');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    // 清空字段容器
+                    customFieldsContainer.innerHTML = '';
+                    
+                    // 解析自定义字段
+                    let customFields = [];
+                    try {
+                        if (data.custom_fields) {
+                            customFields = JSON.parse(data.custom_fields);
+                            console.log('从服务器接收的字段数据 (编辑模态框):', customFields);
+                        }
+                    } catch (e) {
+                        console.error('解析自定义字段失败', e);
+                    }
+                    
+                    // 如果没有字段，显示提示
+                    if (customFields.length === 0) {
+                        customFieldsContainer.innerHTML = `
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                该数据集尚未定义字段。请使用"添加字段"或"批量添加"按钮来添加字段。
+                            </div>
+                        `;
+                    } else {
+                        // 添加现有字段
+                        customFields.forEach(field => {
+                            addFieldToContainer(
+                                field.name || field.field_name || '',
+                                field.type || field.field_type || 'text',
+                                field.description || field.field_description || '',
+                                field.range || field.field_range || '',
+                                field.custom_code || field.field_custom_code || '',
+                                field.standard_code || field.field_standard_code || '',
+                                field.properties || field.field_properties || '',
+                                field.group || field.field_group || ''
+                            );
+                        });
+                    }
+                } else {
+                    customFieldsContainer.innerHTML = `
+                        <div class="alert alert-danger">
+                            ${data.message || '获取数据集信息失败'}
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('获取数据集字段失败:', error);
+                customFieldsContainer.innerHTML = `
+                    <div class="alert alert-danger">
+                        获取数据集字段失败: ${error.message}
+                    </div>
+                `;
+            });
+    }
+    
+    // 添加字段到容器
+    function addFieldToContainer(fieldName = '', fieldType = 'text', fieldDesc = '', fieldRange = '', fieldCustomCode = '', fieldStandardCode = '', fieldProperties = '', fieldGroup = '') {
+        const customFieldsContainer = document.getElementById('customFieldsContainer');
+        
+        const fieldItem = document.createElement('div');
+        fieldItem.className = 'custom-field-item mb-3 border rounded p-2';
+        fieldItem.innerHTML = `
+            <div class="row mb-2">
+                <div class="col-md-3">
+                    <label class="form-label">字段名称</label>
+                    <input type="text" class="form-control" name="field_names[]" value="${escapeHtml(fieldName)}" placeholder="字段名称" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">类型</label>
+                    <select class="form-select" name="field_types[]">
+                        <option value="text" ${fieldType === 'text' ? 'selected' : ''}>文本</option>
+                        <option value="number" ${fieldType === 'number' ? 'selected' : ''}>数值</option>
+                        <option value="date" ${fieldType === 'date' ? 'selected' : ''}>日期</option>
+                        <option value="boolean" ${fieldType === 'boolean' ? 'selected' : ''}>布尔值</option>
+                        <option value="enum" ${fieldType === 'enum' ? 'selected' : ''}>枚举</option>
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">描述</label>
+                    <input type="text" class="form-control" name="field_descriptions[]" value="${escapeHtml(fieldDesc)}" placeholder="字段描述">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="button" class="btn btn-outline-danger btn-sm d-block w-100 remove-field">删除</button>
+                </div>
+            </div>
+            <div class="row mb-2">
+                <div class="col-md-3">
+                    <label class="form-label">取值范围</label>
+                    <input type="text" class="form-control" name="field_ranges[]" value="${escapeHtml(fieldRange)}" placeholder="如: 0-100">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">自定编码</label>
+                    <input type="text" class="form-control" name="field_custom_codes[]" value="${escapeHtml(fieldCustomCode)}" placeholder="如: CODE001">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">规范编码</label>
+                    <input type="text" class="form-control" name="field_standard_codes[]" value="${escapeHtml(fieldStandardCode)}" placeholder="如: LOINC:12345-6">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">其他属性</label>
+                    <input type="text" class="form-control" name="field_properties[]" value="${escapeHtml(fieldProperties)}" placeholder="其他属性">
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <label class="form-label">字段分组</label>
+                    <input type="text" class="form-control" name="field_groups[]" value="${escapeHtml(fieldGroup || '')}" placeholder="如: 基本信息、生命体征、检验结果">
+                    <small class="form-text text-muted">同一分组的字段将在展示时被归类在一起</small>
+                </div>
+            </div>
+        `;
+        
+        customFieldsContainer.appendChild(fieldItem);
+        
+        // 为删除按钮添加事件监听
+        fieldItem.querySelector('.remove-field').addEventListener('click', function() {
+            fieldItem.remove();
+        });
+    }
+    
+    // 解析CSV行，考虑引号包裹的内容
+    function parseCSVLineImproved(line) {
+        // 处理一些常见的CSV格式问题
+        line = line.replace(/\r/g, ''); // 移除可能的回车符
+        
+        // 检测分隔符，支持逗号、制表符、分号
+        let separator = ',';
+        const commaCount = (line.match(/,/g) || []).length;
+        const tabCount = (line.match(/\t/g) || []).length;
+        const semicolonCount = (line.match(/;/g) || []).length;
+        
+        if (tabCount > commaCount && tabCount > semicolonCount) {
+            separator = '\t';
+        } else if (semicolonCount > commaCount && semicolonCount > tabCount) {
+            separator = ';';
+        }
+        
+        // 标准CSV解析，考虑引号包裹的内容
+        const result = [];
+        let startPos = 0;
+        let inQuotes = false;
+        let currentField = '';
+        
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            const nextChar = i < line.length - 1 ? line[i + 1] : '';
+            
+            if (char === '"' && !inQuotes) {
+                inQuotes = true;
+                continue;
+            }
+            
+            if (char === '"' && inQuotes) {
+                if (nextChar === '"') {
+                    // 处理双引号转义
+                    currentField += '"';
+                    i++; // 跳过下一个引号
+                } else {
+                    inQuotes = false;
+                }
+                continue;
+            }
+            
+            if (char === separator && !inQuotes) {
+                result.push(currentField);
+                currentField = '';
+                continue;
+            }
+            
+            currentField += char;
+        }
+        
+        // 添加最后一个字段
+        result.push(currentField);
+        
+        return result;
+    }
+    
+    // 批量删除所有记录
+    async function deleteAllEntries(datasetId, entryIds) {
+        console.log(`开始批量删除 ${entryIds.length} 条记录`);
+        
+        // 获取CSRF令牌
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || 
+                          document.querySelector('input[name="csrf_token"]')?.value ||
+                          document.querySelector('input[name="_csrf_token"]')?.value;
+        
+        // 进度计数
+        let successCount = 0;
+        let failCount = 0;
+        const totalCount = entryIds.length;
+        
+        // 更新进度的函数
+        const updateProgress = () => {
+            const errorMsgElem = document.getElementById('clearErrorText');
+            errorMsgElem.textContent = `进度: ${successCount + failCount}/${totalCount} (成功: ${successCount}, 失败: ${failCount})`;
+            const errorAlertElem = document.getElementById('clearErrorMessage');
+            errorAlertElem.classList.remove('d-none');
+            errorAlertElem.classList.remove('alert-warning');
+            errorAlertElem.classList.add('alert-info');
+        };
+        
+        // 使用Promise.all批量处理删除请求
+        const deletePromises = entryIds.map(entryId => 
+            fetch(`/api/datasets/entries/${entryId}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrfToken
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    failCount++;
+                    console.error(`删除记录 ${entryId} 失败，HTTP状态码: ${response.status}`);
+                    return false;
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data && data.success) {
+                    successCount++;
+                } else {
+                    failCount++;
+                    console.error(`删除记录 ${entryId} 失败:`, data?.message || '未知错误');
+                }
+                
+                // 每10条记录更新一次进度
+                if ((successCount + failCount) % 10 === 0 || 
+                    successCount + failCount === totalCount) {
+                    updateProgress();
+                }
+                
+                return true;
+            })
+            .catch(error => {
+                failCount++;
+                console.error(`删除记录 ${entryId} 出错:`, error);
+                return false;
+            })
+        );
+        
+        // 初始化进度显示
+        updateProgress();
+        
+        // 等待所有删除操作完成
+        await Promise.all(deletePromises);
+        
+        // 返回结果
+        return {
+            success: true,
+            message: `数据集清空完成，成功删除 ${successCount} 条记录${failCount > 0 ? `，${failCount} 条记录删除失败` : ''}`
+        };
+    }
+    
+    // 直接通过表单提交清空数据集 (备选方案)
+    function submitClearDatasetForm(datasetId) {
+        // 显示加载状态
+        const directSubmitBtn = document.getElementById('directFormSubmitBtn');
+        const originalBtnText = directSubmitBtn.textContent;
+        directSubmitBtn.disabled = true;
+        directSubmitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 处理中...';
+        
+        // 首先获取数据集的所有记录
+        fetch(`/api/datasets/${datasetId}/entries`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`获取数据集记录失败，HTTP状态码: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (!data.success || !data.entries) {
+                    throw new Error('获取数据集记录失败: ' + (data.message || '未知错误'));
+                }
+                
+                // 提取所有记录的ID
+                const entryIds = data.entries.map(entry => entry.id);
+                console.log(`找到 ${entryIds.length} 条记录需要删除`);
+                
+                if (entryIds.length === 0) {
+                    return {
+                        success: true,
+                        message: '数据集已经是空的，没有记录需要删除'
+                    };
+                }
+                
+                // 创建一个表单来提交删除请求
+                for (let i = 0; i < entryIds.length; i++) {
+                    const entryId = entryIds[i];
+                    // 单独使用一个AJAX请求删除每个记录
+                    fetch(`/api/datasets/entries/${entryId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    }).catch(error => {
+                        console.error(`删除记录 ${entryId} 时出错:`, error);
+                    });
+                }
+                
+                // 返回成功消息
+                return {
+                    success: true,
+                    message: `已提交删除 ${entryIds.length} 条记录的请求，请等待处理完成后刷新页面查看结果`
+                };
+            })
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    // 不要立即关闭模态框，让用户看到成功消息
+                    setTimeout(() => {
+                        bootstrap.Modal.getInstance(document.getElementById('clearDatasetModal')).hide();
+                        window.location.reload(); // 刷新页面查看结果
+                    }, 1000);
+                } else {
+                    alert(`清空数据集失败: ${data.message || '未知错误'}`);
+                }
+            })
+            .catch(error => {
+                console.error('清空数据集失败:', error);
+                alert(`清空数据集失败: ${error.message}`);
+            })
+            .finally(() => {
+                // 恢复按钮状态
+                directSubmitBtn.disabled = false;
+                directSubmitBtn.textContent = originalBtnText;
+            });
+    }
+    
+    // 显示清空数据集确认对话框
+    function confirmClearDataset(datasetId, datasetName) {
+        // 设置数据集信息
+        document.getElementById('clearDatasetName').textContent = datasetName;
+        document.getElementById('clearDatasetId').value = datasetId;
+        
+        // 清空确认文本框
+        document.getElementById('clearDatasetConfirm').value = '';
+        document.getElementById('confirmClearBtn').disabled = true;
+        
+        // 重置错误信息和备选方案按钮
+        document.getElementById('clearErrorMessage').classList.add('d-none');
+        document.getElementById('clearErrorText').textContent = '';
+        document.getElementById('directFormSubmitBtn').classList.add('d-none');
+        document.getElementById('directFormSubmitBtn').disabled = true;
+        
+        // 显示模态框
+        var modal = new bootstrap.Modal(document.getElementById('clearDatasetModal'));
+        modal.show();
+    }
+    
+    // 执行清空数据集操作
+    function clearDataset(datasetId) {
+        // 显示加载状态
+        const confirmBtn = document.getElementById('confirmClearBtn');
+        const originalText = confirmBtn.textContent;
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 处理中...';
+        
+        // 获取CSRF令牌 - 尝试多种可能的来源
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || 
+                          document.querySelector('input[name="csrf_token"]')?.value ||
+                          document.querySelector('input[name="_csrf_token"]')?.value;
+                          
+        console.log("Using CSRF token:", csrfToken ? "Found token" : "No token found");
+        
+        // 首先获取数据集的所有记录
+        fetch(`/api/datasets/${datasetId}/entries`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`获取数据集记录失败，HTTP状态码: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (!data.success || !data.entries) {
+                    throw new Error('获取数据集记录失败: ' + (data.message || '未知错误'));
+                }
+                
+                // 提取所有记录的ID
+                const entryIds = data.entries.map(entry => entry.id);
+                console.log(`找到 ${entryIds.length} 条记录需要删除`);
+                
+                if (entryIds.length === 0) {
+                    // 如果没有记录，直接返回成功
+                    return {
+                        success: true,
+                        message: '数据集已经是空的，没有记录需要删除'
+                    };
+                }
+                
+                // 批量删除所有记录
+                return deleteAllEntries(datasetId, entryIds);
+            })
+        .then(result => {
+            // 直接处理来自deleteAllEntries的结果对象或来自fetch的Response对象
+            console.log("处理结果:", result);
+            
+            // 检查是否是fetch Response对象
+            if (result && typeof result.json === 'function') {
+                // 这是一个fetch Response对象
+                console.log("Response status:", result.status);
+                
+                // 检查响应类型
+                const contentType = result.headers.get('content-type') || '';
+                console.log("Response content type:", contentType);
+                
+                if (!result.ok) {
+                    return result.text().then(text => {
+                        console.log("Error response (first 100 chars):", text.substring(0, 100));
+                        
+                        try {
+                            return JSON.parse(text);
+                        } catch (e) {
+                            console.error("Failed to parse response as JSON:", e);
+                            
+                            if (text.includes('<!DOCTYPE html>') || text.includes('<html')) {
+                                // 如果是重定向到登录页面，提示用户重新登录
+                                if (text.includes('login') || text.includes('登录')) {
+                                    throw new Error('您的会话已过期，请重新登录后再试');
+                                } else {
+                                    // 尝试使用JSON格式重试
+                                    console.log("Received HTML response, retrying with JSON format");
+                                    return {success: false, message: '接收到HTML响应，尝试使用JSON格式重试', retry_with_json: true};
+                                }
+                            } else {
+                                throw new Error(`HTTP错误 ${result.status}: ${text.substring(0, 100)}`);
+                            }
+                        }
+                    });
+                }
+                return result.json();
+            } else {
+                // 这是一个直接的结果对象
+                return result;
+            }
+        })
+        .then(data => {
+            // 数据已经被处理，直接返回
+            return data;
+        })
+        .then(data => {
+            if (data.success) {
+                // 关闭模态框
+                bootstrap.Modal.getInstance(document.getElementById('clearDatasetModal')).hide();
+                
+                // 显示成功消息
+                alert(`数据集清空成功：${data.message || '已删除所有数据记录'}`);
+                
+                // 刷新页面
+                window.location.reload();
+            } else {
+                alert(`清空数据集失败: ${data.message || '未知错误'}`);
+            }
+        })
+        .catch(error => {
+            console.error('清空数据集失败:', error);
+            
+            // 显示错误消息在模态框中
+            const errorMsgElem = document.getElementById('clearErrorText');
+            const errorAlertElem = document.getElementById('clearErrorMessage');
+            const directSubmitBtn = document.getElementById('directFormSubmitBtn');
+            
+            errorMsgElem.textContent = `错误: ${error.message}`;
+            errorAlertElem.classList.remove('d-none');
+            errorAlertElem.classList.add('alert-warning');
+            errorAlertElem.classList.remove('alert-info');
+            
+            // 显示备选方案按钮
+            directSubmitBtn.classList.remove('d-none');
+            directSubmitBtn.disabled = false;
+            
+            // 启用备选方案按钮事件
+            const datasetId = document.getElementById('clearDatasetId').value;
+            directSubmitBtn.onclick = function() {
+                const confirmText = document.getElementById('clearDatasetConfirm').value.trim();
+                if (confirmText === 'CONFIRM') {
+                    submitClearDatasetForm(datasetId);
+                } else {
+                    alert('请先输入 "CONFIRM" 确认操作');
+                }
+            };
+            
+            // 如果是会话过期相关错误，提供刷新选项
+            if (error.message.includes('会话已过期') || error.message.includes('CSRF') || error.message.includes('令牌')) {
+                errorMsgElem.textContent += '\n可能是会话已过期，请尝试刷新页面或使用备选方案。';
+            } else if (error.message.includes('404')) {
+                errorMsgElem.textContent = '错误: API端点未找到，请尝试使用备选方案或联系管理员。';
+            }
+        })
+        .finally(() => {
+            // 恢复按钮状态
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = originalText;
+        });
+    }
+    
+    // 显示导入数据模态框
+    function showImportDataModal(datasetId, datasetName) {
+        // 重置表单
+        document.getElementById('importDataForm').reset();
+        document.getElementById('importDatasetId').value = datasetId;
+        document.getElementById('importDataModalLabel').textContent = `导入数据: ${datasetName}`;
+        
+        // 隐藏结果区域
+        document.getElementById('importPreviewArea').classList.add('d-none');
+        document.getElementById('importProgressArea').classList.add('d-none');
+        document.getElementById('importResultArea').classList.add('d-none');
+        document.getElementById('confirmImportBtn').classList.add('d-none');
+        
+        // 获取数据集字段
+        fetch(`/api/datasets/${datasetId}/info`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // 解析自定义字段
+                    let customFields = [];
+                    try {
+                        if (data.custom_fields) {
+                            customFields = JSON.parse(data.custom_fields);
+                            console.log('从服务器接收的字段数据 (导入模态框):', customFields);
+                        }
+                    } catch (e) {
+                        console.error('解析自定义字段失败', e);
+                    }
+                    
+                    // 填充唯一标识符下拉列表
+                    const uniqueIdentifierField = document.getElementById('uniqueIdentifierField');
+                    uniqueIdentifierField.innerHTML = '<option value="">-- 请选择 --</option>';
+                    
+                    customFields.forEach(field => {
+                        const fieldName = field.name || field.field_name || '';
+                        const option = document.createElement('option');
+                        option.value = fieldName;
+                        option.textContent = fieldName;
+                        uniqueIdentifierField.appendChild(option);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('获取数据集字段失败:', error);
+            });
+        
+        // 显示模态框
+        var modal = new bootstrap.Modal(document.getElementById('importDataModal'));
+        modal.show();
+    }
+    
+    // 预览数据
+    document.getElementById('previewDataBtn').addEventListener('click', function() {
+        const datasetId = document.getElementById('importDatasetId').value;
+        const importFile = document.getElementById('importFile').files[0];
+        
+        if (!importFile) {
+            alert('请选择要导入的文件');
+            return;
+        }
+        
+        // 验证文件类型
+        const validExtensions = ['.csv', '.xlsx', '.xls'];
+        const fileName = importFile.name.toLowerCase();
+        const fileExt = fileName.substring(fileName.lastIndexOf('.'));
+        if (!validExtensions.includes(fileExt)) {
+            alert('文件类型不支持。请上传 CSV 或 Excel 文件 (.csv, .xlsx, .xls)');
+            return;
+        }
+        
+        // 验证文件大小
+        const maxSize = 100 * 1024 * 1024; // 100MB
+        if (importFile.size > maxSize) {
+            alert(`文件大小超过限制。最大支持 ${maxSize / (1024 * 1024)}MB`);
+            return;
+        }
+        
+        // 创建FormData对象
+        const formData = new FormData();
+        formData.append('dataset_id', datasetId);
+        formData.append('import_file', importFile); // 修改为 'import_file'，与后端参数名一致
+        formData.append('has_header', !document.getElementById('skipHeader').checked); // 修改为 'has_header'，并取反，因为 skip_header 和 has_header 是相反的概念
+        
+        // 显示加载中
+        document.getElementById('previewDataBtn').disabled = true;
+        document.getElementById('previewDataBtn').innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 加载中...';
+        
+        // 显示预览区域但暂时显示加载中
+        const importPreviewArea = document.getElementById('importPreviewArea');
+        importPreviewArea.classList.remove('d-none');
+        importPreviewArea.innerHTML = `
+            <div class="text-center p-3">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">加载中...</span>
+                </div>
+                <p class="mt-2">正在处理文件，请稍候...</p>
+            </div>
+        `;
+        
+        // 发送预览请求
+        fetch('/api/datasets/preview_import', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': getCsrfToken()
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            // 检查响应状态
+            if (!response.ok) {
+                // 尝试获取详细错误信息
+                return response.text().then(text => {
+                    try {
+                        // 尝试解析为JSON以获取详细错误
+                        const errorData = JSON.parse(text);
+                        throw new Error(`${response.status} ${response.statusText}: ${errorData.message || errorData.error || '未知错误'}`);
+                    } catch (e) {
+                        // 如果无法解析为JSON
+                        if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+                            // HTML响应，可能是重定向到登录页面或服务器错误
+                            if (text.includes('login') || text.includes('登录')) {
+                                throw new Error('会话已过期，请刷新页面后重试');
+                            } else if (response.status === 400) {
+                                throw new Error(`请求格式错误 (400 Bad Request)。服务器无法理解请求。`);
+                            } else if (response.status === 413) {
+                                throw new Error(`文件过大 (413 Payload Too Large)。请上传小于10MB的文件。`);
+                            } else if (response.status === 415) {
+                                throw new Error(`不支持的文件类型 (415 Unsupported Media Type)。请上传CSV或Excel文件。`);
+                            } else if (response.status === 500) {
+                                throw new Error(`服务器内部错误 (500 Internal Server Error)。请联系管理员。`);
+                            } else {
+                                throw new Error(`HTTP错误: ${response.status} ${response.statusText}`);
+                            }
+                        } else {
+                            throw new Error(`HTTP错误 ${response.status}: ${text.substring(0, 100) || response.statusText}`);
+                        }
+                    }
+                });
+            }
+            
+            // 检查响应类型
+            const contentType = response.headers.get('content-type');
+            // 更宽松的内容类型检查，只要包含json就接受
+            if (!contentType || (!contentType.includes('json') && !contentType.includes('application/json'))) {
+                // 如果不是JSON，读取文本内容并尝试解析
+                return response.text().then(text => {
+                    if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+                        // HTML响应，可能是重定向到登录页面或服务器错误
+                        if (text.includes('login') || text.includes('登录')) {
+                            throw new Error('会话已过期，请刷新页面后重试');
+                        } else {
+                            throw new Error('服务器返回了HTML而非JSON数据，可能是API端点不存在');
+                        }
+                    } else {
+                        // 尝试解析为JSON，即使Content-Type不正确
+                        try {
+                            return JSON.parse(text);
+                        } catch (e) {
+                            throw new Error(`服务器返回了非JSON格式: ${text.substring(0, 100)}...`);
+                        }
+                    }
+                });
+            }
+            
+            // 正常JSON响应
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // 清空并重建预览区域
+                importPreviewArea.innerHTML = '';
+                
+                // 添加标题
+                const previewTitle = document.createElement('h6');
+                previewTitle.textContent = '数据预览';
+                importPreviewArea.appendChild(previewTitle);
+                
+                // 添加表格容器
+                const tableContainer = document.createElement('div');
+                tableContainer.className = 'table-responsive';
+                tableContainer.style.maxHeight = '200px';
+                tableContainer.style.overflowY = 'auto';
+                importPreviewArea.appendChild(tableContainer);
+                
+                // 构建预览表格
+                const previewTable = document.createElement('table');
+                previewTable.className = 'table table-sm table-bordered';
+                previewTable.id = 'importPreviewTable';
+                tableContainer.appendChild(previewTable);
+                
+                // 表头
+                if (data.headers && data.headers.length > 0) {
+                    const thead = document.createElement('thead');
+                    const headerRow = document.createElement('tr');
+                    
+                    data.headers.forEach(header => {
+                        const th = document.createElement('th');
+                        th.textContent = header;
+                        headerRow.appendChild(th);
+                    });
+                    
+                    thead.appendChild(headerRow);
+                    previewTable.appendChild(thead);
+                }
+                
+                // 数据行
+                if (data.preview_data && data.preview_data.length > 0) {
+                    const tbody = document.createElement('tbody');
+                    
+                    data.preview_data.forEach(row => {
+                        const tr = document.createElement('tr');
+                        
+                        row.forEach(cell => {
+                            const td = document.createElement('td');
+                            td.textContent = cell;
+                            tr.appendChild(td);
+                        });
+                        
+                        tbody.appendChild(tr);
+                    });
+                    
+                    previewTable.appendChild(tbody);
+                } else {
+                    // 没有预览数据
+                    const noDataRow = document.createElement('tr');
+                    const noDataCell = document.createElement('td');
+                    noDataCell.colSpan = data.headers ? data.headers.length : 1;
+                    noDataCell.textContent = '没有可用的预览数据';
+                    noDataCell.className = 'text-center p-3';
+                    noDataRow.appendChild(noDataCell);
+                    
+                    const tbody = document.createElement('tbody');
+                    tbody.appendChild(noDataRow);
+                    previewTable.appendChild(tbody);
+                }
+                
+                // 添加摘要信息
+                const importSummary = document.createElement('div');
+                importSummary.id = 'importSummary';
+                importSummary.className = 'alert alert-info mt-2';
+                importSummary.innerHTML = `
+                    <p><strong>导入摘要：</strong></p>
+                    <div class="import-summary-item">
+                        <span>总行数：</span>
+                        <span>${data.total_rows || 0}</span>
+                    </div>
+                    <div class="import-summary-item">
+                        <span>有效行数：</span>
+                        <span>${data.valid_rows || 0}</span>
+                    </div>
+                    <div class="import-summary-item">
+                        <span>预计新增记录：</span>
+                        <span>${data.new_records || 0}</span>
+                    </div>
+                `;
+                importPreviewArea.appendChild(importSummary);
+                
+                // 启用导入按钮
+                document.getElementById('confirmImportBtn').classList.remove('d-none');
+            } else {
+                // 显示错误信息
+                importPreviewArea.innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>预览失败：</strong> ${data.message || '未知错误'}
+                        <hr>
+                        <p>服务器返回的错误信息：</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('预览数据失败:', error);
+            
+            // 显示API错误提示
+            importPreviewArea.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>预览失败：</strong> ${error.message}
+                    <hr>
+                    <p>可能的原因：</p>
+                    <ul>
+                        <li>API端点 '/api/datasets/preview_import' 不存在或实现有误</li>
+                        <li>文件格式不正确或无法解析</li>
+                        <li>会话已过期，需要重新登录</li>
+                        <li>文件过大或包含无效数据</li>
+                        <li>服务器内部错误</li>
+                    </ul>
+                    <p>错误详情：</p>
+                    <pre class="border p-2 bg-light" style="max-height: 100px; overflow: auto;">${error.stack || error.message}</pre>
+                    <p>建议：</p>
+                    <ul>
+                        <li>检查文件格式是否符合要求</li>
+                        <li>尝试使用更小的测试文件</li>
+                        <li>检查后端API是否已正确实现</li>
+                        <li>刷新页面后重试</li>
+                    </ul>
+                </div>
+            `;
+        })
+        .finally(() => {
+            // 恢复按钮状态
+            document.getElementById('previewDataBtn').disabled = false;
+            document.getElementById('previewDataBtn').textContent = '预览数据';
+        });
+    });
+    
+    // 同样为确认导入添加类似的错误处理
+    document.getElementById('confirmImportBtn').addEventListener('click', function() {
+        const datasetId = document.getElementById('importDatasetId').value;
+        const importFile = document.getElementById('importFile').files[0];
+        const detectDuplicates = document.getElementById('detectDuplicates').checked;
+        const skipHeader = document.getElementById('skipHeader').checked;
+        const uniqueIdentifier = document.getElementById('uniqueIdentifierField').value;
+        const duplicateStrategy = document.getElementById('duplicateStrategy').value;
+        
+        if (!importFile) {
+            alert('请选择要导入的文件');
+            return;
+        }
+        
+        if (detectDuplicates && !uniqueIdentifier) {
+            alert('请选择用于检测重复的唯一标识符字段');
+            return;
+        }
+        
+        // 验证文件类型
+        const validExtensions = ['.csv', '.xlsx', '.xls'];
+        const fileName = importFile.name.toLowerCase();
+        const fileExt = fileName.substring(fileName.lastIndexOf('.'));
+        if (!validExtensions.includes(fileExt)) {
+            alert('文件类型不支持。请上传 CSV 或 Excel 文件 (.csv, .xlsx, .xls)');
+            return;
+        }
+        
+        // 验证文件大小
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        if (importFile.size > maxSize) {
+            alert(`文件大小超过限制。最大支持 ${maxSize / (1024 * 1024)}MB`);
+            return;
+        }
+        
+        // 创建FormData对象
+        const formData = new FormData();
+        formData.append('dataset_id', datasetId);
+        formData.append('import_file', importFile);
+        formData.append('detect_duplicates', detectDuplicates);
+        formData.append('skip_header', skipHeader);
+        formData.append('unique_identifier', uniqueIdentifier);
+        formData.append('duplicate_strategy', duplicateStrategy);
+        
+        // 显示进度区域
+        document.getElementById('importProgressArea').classList.remove('d-none');
+        document.getElementById('importResultArea').classList.add('d-none');
+        
+        // 禁用按钮
+        document.getElementById('confirmImportBtn').disabled = true;
+        document.getElementById('previewDataBtn').disabled = true;
+        
+        // 更新进度条
+        document.getElementById('importProgressBar').style.width = '0%';
+        document.getElementById('importProgressText').textContent = '开始导入...';
+        
+        // 发送导入请求
+        fetch('/api/datasets/import_data', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': getCsrfToken()
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            // 检查响应状态
+            if (!response.ok) {
+                // 尝试获取详细错误信息
+                return response.text().then(text => {
+                    try {
+                        // 尝试解析为JSON以获取详细错误
+                        const errorData = JSON.parse(text);
+                        throw new Error(`${response.status} ${response.statusText}: ${errorData.message || errorData.error || '未知错误'}`);
+                    } catch (e) {
+                        // 如果无法解析为JSON
+                        if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+                            // HTML响应，可能是重定向到登录页面或服务器错误
+                            if (text.includes('login') || text.includes('登录')) {
+                                throw new Error('会话已过期，请刷新页面后重试');
+                            } else if (response.status === 400) {
+                                throw new Error(`请求格式错误 (400 Bad Request)。服务器无法理解请求。`);
+                            } else if (response.status === 413) {
+                                throw new Error(`文件过大 (413 Payload Too Large)。请上传小于10MB的文件。`);
+                            } else if (response.status === 415) {
+                                throw new Error(`不支持的文件类型 (415 Unsupported Media Type)。请上传CSV或Excel文件。`);
+                            } else if (response.status === 500) {
+                                throw new Error(`服务器内部错误 (500 Internal Server Error)。请联系管理员。`);
+                            } else {
+                                throw new Error(`HTTP错误: ${response.status} ${response.statusText}`);
+                            }
+                        } else {
+                            throw new Error(`HTTP错误 ${response.status}: ${text.substring(0, 100) || response.statusText}`);
+                        }
+                    }
+                });
+            }
+            
+            // 检查响应类型
+            const contentType = response.headers.get('content-type');
+            // 更宽松的内容类型检查，只要包含json就接受
+            if (!contentType || (!contentType.includes('json') && !contentType.includes('application/json'))) {
+                // 如果不是JSON，读取文本内容并尝试解析
+                return response.text().then(text => {
+                    if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+                        // HTML响应，可能是重定向到登录页面或服务器错误
+                        if (text.includes('login') || text.includes('登录')) {
+                            throw new Error('会话已过期，请刷新页面后重试');
+                        } else {
+                            throw new Error('服务器返回了HTML而非JSON数据，可能是API端点不存在');
+                        }
+                    } else {
+                        // 尝试解析为JSON，即使Content-Type不正确
+                        try {
+                            return JSON.parse(text);
+                        } catch (e) {
+                            throw new Error(`服务器返回了非JSON格式: ${text.substring(0, 100)}...`);
+                        }
+                    }
+                });
+            }
+            
+            // 正常JSON响应
+            return response.json();
+        })
+        .then(data => {
+            // 更新进度为100%
+            document.getElementById('importProgressBar').style.width = '100%';
+            
+            if (data.success) {
+                // 显示结果
+                document.getElementById('importResultArea').classList.remove('d-none');
+                document.getElementById('importResultArea').innerHTML = `
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle me-2"></i>
+                        <strong>导入成功！</strong>
+                        <div class="mt-2">
+                            <div class="import-summary-item">
+                                <span>总处理记录：</span>
+                                <span>${data.total_processed || 0}</span>
+                            </div>
+                            <div class="import-summary-item">
+                                <span>成功导入：</span>
+                                <span>${data.imported || 0}</span>
+                            </div>
+                            <div class="import-summary-item">
+                                <span>跳过重复：</span>
+                                <span>${data.skipped || 0}</span>
+                            </div>
+                            <div class="import-summary-item">
+                                <span>更新记录：</span>
+                                <span>${data.updated || 0}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('importProgressText').textContent = '导入完成！';
+                
+                // 3秒后自动刷新页面
+                setTimeout(() => {
+                    window.location.reload();
+                }, 3000);
+            } else {
+                // 显示错误
+                document.getElementById('importResultArea').classList.remove('d-none');
+                document.getElementById('importResultArea').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>导入失败：</strong> ${data.message || '未知错误'}
+                    </div>
+                `;
+                
+                document.getElementById('importProgressText').textContent = '导入失败！';
+            }
+        })
+        .catch(error => {
+            console.error('导入数据失败:', error);
+            
+            // 显示错误
+            document.getElementById('importResultArea').classList.remove('d-none');
+            document.getElementById('importResultArea').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>导入失败：</strong> ${error.message}
+                    <hr>
+                    <p>可能的原因：</p>
+                    <ul>
+                        <li>API端点 '/api/datasets/import_data' 不存在或实现有误</li>
+                        <li>文件格式不正确或无法解析</li>
+                        <li>会话已过期，需要重新登录</li>
+                        <li>文件过大或包含无效数据</li>
+                        <li>服务器内部错误</li>
+                    </ul>
+                    <p>错误详情：</p>
+                    <pre class="border p-2 bg-light" style="max-height: 100px; overflow: auto;">${error.stack || error.message}</pre>
+                    <p>建议：</p>
+                    <ul>
+                        <li>检查文件格式是否符合要求</li>
+                        <li>尝试使用更小的测试文件</li>
+                        <li>检查后端API是否已正确实现</li>
+                        <li>刷新页面后重试</li>
+                    </ul>
+                </div>
+            `;
+            
+            document.getElementById('importProgressText').textContent = '导入失败！';
+        })
+        .finally(() => {
+            // 恢复按钮状态
+            document.getElementById('confirmImportBtn').disabled = false;
+            document.getElementById('previewDataBtn').disabled = false;
+        });
+    });
+    
+    // 监听文件选择变化，重置预览和结果区域
+    document.getElementById('importFile').addEventListener('change', function() {
+        document.getElementById('importPreviewArea').classList.add('d-none');
+        document.getElementById('importProgressArea').classList.add('d-none');
+        document.getElementById('importResultArea').classList.add('d-none');
+        document.getElementById('confirmImportBtn').classList.add('d-none');
+    });
+    
+    // 监听检测重复选项变化
+    document.getElementById('detectDuplicates').addEventListener('change', function() {
+        const uniqueIdentifierField = document.getElementById('uniqueIdentifierField');
+        const duplicateStrategy = document.getElementById('duplicateStrategy');
+        
+        if (this.checked) {
+            uniqueIdentifierField.disabled = false;
+            duplicateStrategy.disabled = false;
+        } else {
+            uniqueIdentifierField.disabled = true;
+            duplicateStrategy.disabled = true;
+        }
+    });
+    
+    // 页面加载完成后初始化事件监听
+    document.addEventListener('DOMContentLoaded', function() {
+        // 添加字段按钮点击事件
+        document.getElementById('addFieldBtn').addEventListener('click', function() {
+            addFieldToContainer();
+        });
+        
+        // 清空字段按钮点击事件
+        document.getElementById('clearFieldsBtn').addEventListener('click', function() {
+            if (confirm('确定要清空所有字段吗？此操作不可恢复。')) {
+                document.getElementById('customFieldsContainer').innerHTML = `
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        该数据集尚未定义字段。请使用"添加字段"或"批量添加"按钮来添加字段。
+                    </div>
+                `;
+            }
+        });
+        
+        // 批量添加按钮点击事件
+        document.getElementById('batchAddBtn').addEventListener('click', function() {
+            var batchModal = new bootstrap.Modal(document.getElementById('batchFieldsModal'));
+            batchModal.show();
+        });
+        
+        // 粘贴示例按钮点击事件
+        document.getElementById('pasteExampleBtn').addEventListener('click', function() {
+            const exampleText = `姓名,text,患者姓名,,NAME,MR.NAME,required,基本信息
+年龄,number,患者年龄,0-120,AGE,MR.AGE,,基本信息
+性别,enum,患者性别,男/女,SEX,MR.SEX,required,基本信息
+采集日期,date,检查日期,,DATE,MR.DATE,,基本信息
+体温,number,体温,35-42,TEMP,VITAL.TEMP,,生命体征`;
+            document.getElementById('batchFieldsText').value = exampleText;
+        });
+        
+        // 导出模板按钮点击事件
+        document.getElementById('importTemplateBtn').addEventListener('click', function() {
+            const templateContent = `姓名,text,患者姓名,,NAME,MR.NAME,required,基本信息
+年龄,number,患者年龄,0-120,AGE,MR.AGE,,基本信息
+性别,enum,患者性别,男/女,SEX,MR.SEX,required,基本信息
+采集日期,date,检查日期,,DATE,MR.DATE,,基本信息
+体温,number,体温,35-42,TEMP,VITAL.TEMP,,生命体征
+脉搏,number,脉搏,40-200,PULSE,VITAL.PULSE,,生命体征
+收缩压,number,收缩压,60-260,SBP,VITAL.SBP,,生命体征
+舒张压,number,舒张压,40-160,DBP,VITAL.DBP,,生命体征
+诊断结果,text,诊断结果,,DIAG,MR.DIAG,required,诊断信息`;
+            
+            // 创建下载链接
+            const element = document.createElement('a');
+            element.setAttribute('href', 'data:text/csv;charset=utf-8,' + encodeURIComponent(templateContent));
+            element.setAttribute('download', '数据集字段模板.csv');
+            element.style.display = 'none';
+            
+            document.body.appendChild(element);
+            element.click();
+            document.body.removeChild(element);
+        });
+        
+        // 导入字段按钮点击事件
+        document.getElementById('importFieldsBtn').addEventListener('click', function() {
+            const batchText = document.getElementById('batchFieldsText').value.trim();
+            if (!batchText) {
+                alert('请先输入字段数据');
+                return;
+            }
+            
+            // 解析文本中的字段定义
+            const lines = batchText.split('\n');
+            let validLines = 0;
+            let errorLines = [];
+            
+            lines.forEach((line, index) => {
+                line = line.trim();
+                if (!line) return; // 跳过空行
+                
+                try {
+                    // 使用改进的CSV解析方法
+                    const parts = parseCSVLineImproved(line);
+                    
+                    if (parts.length < 2) {
+                        errorLines.push(`第 ${index+1} 行: 字段格式不正确，至少需要字段名和类型`);
+                        return; // 至少需要字段名和类型
+                    }
+                    
+                    const fieldName = parts[0].trim();
+                    let fieldType = parts[1].trim().toLowerCase(); // 转小写以提高兼容性
+                    const fieldDesc = parts.length > 2 ? parts[2].trim() : '';
+                    const fieldRange = parts.length > 3 ? parts[3].trim() : '';
+                    const fieldCustomCode = parts.length > 4 ? parts[4].trim() : '';
+                    const fieldStandardCode = parts.length > 5 ? parts[5].trim() : '';
+                    const fieldProperties = parts.length > 6 ? parts[6].trim() : '';
+                    const fieldGroup = parts.length > 7 ? parts[7].trim() : '';
+                    
+                    // 字段类型规范化处理
+                    if (fieldType.includes('text') || fieldType.includes('字符') || fieldType.includes('文本')) {
+                        fieldType = 'text';
+                    } else if (fieldType.includes('num') || fieldType.includes('数值') || fieldType.includes('数字')) {
+                        fieldType = 'number';
+                    } else if (fieldType.includes('date') || fieldType.includes('日期') || fieldType.includes('时间')) {
+                        fieldType = 'date';
+                    } else if (fieldType.includes('bool') || fieldType.includes('布尔') || fieldType.includes('是否')) {
+                        fieldType = 'boolean';
+                    } else if (fieldType.includes('enum') || fieldType.includes('枚举') || fieldType.includes('选择')) {
+                        fieldType = 'enum';
+                    }
+                    
+                    // 验证字段类型
+                    const validTypes = ['text', 'number', 'date', 'boolean', 'enum'];
+                    if (!validTypes.includes(fieldType)) {
+                        errorLines.push(`第 ${index+1} 行: 不支持的字段类型 "${fieldType}"`);
+                        return;
+                    }
+                    
+                    // 添加字段
+                    addFieldToContainer(fieldName, fieldType, fieldDesc, fieldRange, fieldCustomCode, fieldStandardCode, fieldProperties, fieldGroup);
+                    validLines++;
+                } catch (e) {
+                    errorLines.push(`第 ${index+1} 行: ${e.message}`);
+                }
+            });
+            
+            if (validLines > 0) {
+                // 关闭模态框
+                bootstrap.Modal.getInstance(document.getElementById('batchFieldsModal')).hide();
+                
+                if (errorLines.length > 0) {
+                    // 有些行解析成功，有些失败
+                    alert(`成功导入 ${validLines} 个字段，但有 ${errorLines.length} 个字段定义无效。\n\n${errorLines.join('\n')}`);
+                } else {
+                    alert(`成功导入 ${validLines} 个字段`);
+                }
+            } else {
+                // 所有行都解析失败
+                let errorMsg = '没有有效的字段定义，请检查格式。\n\n可能的原因：\n';
+                errorMsg += '1. 字段定义不符合要求格式（字段名,类型,描述,...）\n';
+                errorMsg += '2. 字段类型必须是：text, number, date, boolean, enum 之一\n';
+                errorMsg += '3. CSV格式可能包含特殊字符导致解析失败\n\n';
+                errorMsg += errorLines.join('\n');
+                
+                alert(errorMsg);
+            }
+        });
+        
+        // 清空数据集确认输入框事件
+        document.getElementById('clearDatasetConfirm').addEventListener('input', function() {
+            const confirmText = this.value.trim();
+            const confirmBtn = document.getElementById('confirmClearBtn');
+            confirmBtn.disabled = confirmText !== 'CONFIRM';
+        });
+        
+        // 确认清空按钮点击事件
+        document.getElementById('confirmClearBtn').addEventListener('click', function() {
+            const datasetId = document.getElementById('clearDatasetId').value;
+            const confirmText = document.getElementById('clearDatasetConfirm').value.trim();
+            
+            if (confirmText === 'CONFIRM' && datasetId) {
+                clearDataset(datasetId);
+            }
+        });
+        
+        // 保存字段按钮点击事件
+        document.getElementById('saveFieldsBtn').addEventListener('click', function() {
+            const datasetId = document.getElementById('editDatasetId').value;
+            const form = document.getElementById('editFieldsForm');
+            
+            // 获取所有字段信息
+            const fieldNames = Array.from(form.querySelectorAll('input[name="field_names[]"]')).map(input => input.value.trim());
+            const fieldTypes = Array.from(form.querySelectorAll('select[name="field_types[]"]')).map(select => select.value);
+            const fieldDescriptions = Array.from(form.querySelectorAll('input[name="field_descriptions[]"]')).map(input => input.value.trim());
+            const fieldRanges = Array.from(form.querySelectorAll('input[name="field_ranges[]"]')).map(input => input.value.trim());
+            const fieldCustomCodes = Array.from(form.querySelectorAll('input[name="field_custom_codes[]"]')).map(input => input.value.trim());
+            const fieldStandardCodes = Array.from(form.querySelectorAll('input[name="field_standard_codes[]"]')).map(input => input.value.trim());
+            const fieldProperties = Array.from(form.querySelectorAll('input[name="field_properties[]"]')).map(input => input.value.trim());
+            const fieldGroups = Array.from(form.querySelectorAll('input[name="field_groups[]"]')).map(input => input.value.trim());
+            
+            // 验证字段名称不能为空
+            const emptyNameIndex = fieldNames.findIndex(name => !name);
+            if (emptyNameIndex !== -1) {
+                alert(`第 ${emptyNameIndex + 1} 个字段的名称不能为空`);
+                return;
+            }
+            
+            // 构建字段数据
+            const fields = fieldNames.map((name, index) => ({
+                name: name,
+                type: fieldTypes[index],
+                description: fieldDescriptions[index],
+                range: fieldRanges[index],
+                custom_code: fieldCustomCodes[index],
+                standard_code: fieldStandardCodes[index],
+                properties: fieldProperties[index],
+                required: fieldProperties[index].includes('required'),
+                group: fieldGroups[index] || ''
+            }));
+            
+            // 显示加载提示
+            const saveBtn = document.getElementById('saveFieldsBtn');
+            const originalText = saveBtn.textContent;
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 保存中...';
+            
+            // 获取CSRF令牌
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || 
+                              document.querySelector('input[name="csrf_token"]')?.value;
+            
+            // 使用FormData对象
+            const formData = new FormData();
+            formData.append('custom_fields', JSON.stringify(fields));
+            if (csrfToken) {
+                formData.append('csrf_token', csrfToken);
+            }
+            
+            // 调试日志
+            console.log('发送到服务器的字段数据:', fields);
+            
+            // 发送更新请求 - 尝试使用FormData
+            fetch(`/api/datasets/${datasetId}/update_fields`, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        try {
+                            // 尝试解析为JSON
+                            return JSON.parse(text);
+                        } catch (e) {
+                            // 如果不是JSON，检查是否为HTML响应
+                            if (text.includes('<!DOCTYPE html>') || text.includes('<html')) {
+                                console.error('收到HTML响应而非JSON:', text.substring(0, 200));
+                                throw new Error('服务器返回了HTML而非JSON，可能是CSRF令牌失效或会话过期');
+                            } else {
+                                // 其他非JSON响应
+                                throw new Error(`HTTP错误 ${response.status}: ${text.substring(0, 100)}`);
+                            }
+                        }
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    alert('字段更新成功');
+                    
+                    // 验证字段分组是否成功保存
+                    fetch(`/api/datasets/${datasetId}/info`)
+                        .then(response => response.json())
+                        .then(verifyData => {
+                            if (verifyData.success && verifyData.custom_fields) {
+                                try {
+                                    const savedFields = JSON.parse(verifyData.custom_fields);
+                                    console.log('保存后的字段数据:', savedFields);
+                                    
+                                    // 检查是否包含分组信息
+                                    const hasGroupInfo = savedFields.some(field => field.group !== undefined);
+                                    console.log('字段包含分组信息:', hasGroupInfo);
+                                    
+                                    if (!hasGroupInfo) {
+                                        console.warn('警告: 保存的字段数据中没有分组信息');
+                                    }
+                                } catch (e) {
+                                    console.error('验证保存的字段数据时出错:', e);
+                                }
+                            }
+                        })
+                        .catch(error => {
+                            console.error('验证保存的字段数据失败:', error);
+                        });
+                    
+                    // 关闭模态框
+                    bootstrap.Modal.getInstance(document.getElementById('editFieldsModal')).hide();
+                } else {
+                    alert(`字段更新失败: ${data.message}`);
+                }
+            })
+            .catch(error => {
+                console.error('更新字段失败:', error);
+                alert(`更新字段失败: ${error.message}`);
+                
+                // 如果是CSRF错误，尝试刷新页面
+                if (error.message.includes('CSRF') || error.message.includes('会话过期')) {
+                    if (confirm('会话可能已过期，是否刷新页面？')) {
+                        window.location.reload();
+                    }
+                }
+            })
+            .finally(() => {
+                // 恢复按钮状态
+                saveBtn.disabled = false;
+                saveBtn.textContent = originalText;
+            });
+        });
+    });
+    
+    // 删除数据集相关逻辑
+    function confirmDeleteDataset(datasetId, datasetName) {
+        document.getElementById('deleteDatasetName').textContent = datasetName;
+        document.getElementById('deleteDatasetId').value = datasetId;
+        document.getElementById('deleteDatasetError').classList.add('d-none');
+        var modal = new bootstrap.Modal(document.getElementById('deleteDatasetModal'));
+        modal.show();
+    }
+    document.getElementById('confirmDeleteDatasetBtn').onclick = function() {
+        var datasetId = document.getElementById('deleteDatasetId').value;
+        var errorDiv = document.getElementById('deleteDatasetError');
+        this.disabled = true;
+        this.textContent = '删除中...';
+        fetch(`/admin/delete_dataset/${datasetId}`, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': getCsrfToken()
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 关闭模态框并刷新页面
+                bootstrap.Modal.getInstance(document.getElementById('deleteDatasetModal')).hide();
+                alert(data.message || '删除成功');
+                window.location.reload();
+            } else {
+                errorDiv.textContent = data.message || '删除失败';
+                errorDiv.classList.remove('d-none');
+            }
+        })
+        .catch(err => {
+            errorDiv.textContent = '请求失败: ' + err.message;
+            errorDiv.classList.remove('d-none');
+        })
+        .finally(() => {
+            this.disabled = false;
+            this.textContent = '确认删除';
+        });
+    };
+</script>
+{% endblock %} 

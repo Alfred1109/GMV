@@ -1,0 +1,279 @@
+{% extends "clinical_base.html" %}
+
+{% block title %}编辑项目 - 医学临床科研专病数据管理平台{% endblock %}
+
+{% block content %}
+<!-- 顶部导航栏 -->
+<div class="top-navigation">
+    <div class="top-nav-left">
+        <div class="content-title">
+            编辑项目 <i class="bi bi-pencil-square"></i>
+        </div>
+    </div>
+    <div class="top-nav-right">
+        <a href="{{ url_for('doctor_my_projects') }}" class="clinical-button secondary">
+            <i class="bi bi-arrow-left"></i> 返回项目列表
+        </a>
+    </div>
+</div>
+
+<!-- 主内容区域 -->
+<div class="edit-project-container">
+    <div class="clinical-info-box">
+        <div class="info-box-title">
+            <i class="bi bi-pencil-square"></i> 编辑项目信息
+        </div>
+        <div class="info-box-content">
+            <form method="POST" action="{{ url_for('doctor_edit_project', project_id=project.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                
+                <div class="mb-3">
+                    <label for="name" class="form-label">项目名称</label>
+                    <input type="text" class="form-control" id="name" name="name" value="{{ project.name }}" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="description" class="form-label">项目描述</label>
+                    <textarea class="form-control" id="description" name="description" rows="4">{{ project.description }}</textarea>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="dataset_id" class="form-label">数据集</label>
+                    <select class="form-select" id="dataset_id" name="dataset_id" required>
+                        <option value="">-- 请选择数据集 --</option>
+                        {% for dataset in available_datasets %}
+                        <option value="{{ dataset.id }}" 
+                                {% if project.dataset_id == dataset.id %}selected{% endif %}>
+                            {{ dataset.name }} {% if dataset.version %}(v{{ dataset.version }}){% endif %}
+                            {% if dataset.created_by == current_user.id %}
+                                [我的数据集]
+                            {% elif dataset.privacy_level == 'public' or not dataset.privacy_level %}
+                                [公开数据集]
+                            {% elif dataset.privacy_level == 'team' %}
+                                [团队数据集]
+                            {% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="multi_center_mode" name="multi_center_mode" 
+                           {% if project.is_multi_center %}checked{% endif %}>
+                    <label class="form-check-label" for="multi_center_mode">多中心模式</label>
+                    <small class="form-text text-muted d-block">启用多中心模式可以邀请其他医生共同开展此项目</small>
+                </div>
+                
+                <div class="mb-3 doctor-selection" id="doctorSelectionArea" data-multi-center="{% if project.is_multi_center %}true{% else %}false{% endif %}">
+                    <label class="form-label">选择协作医生</label>
+                    <div class="input-group mb-2">
+                        <input type="text" class="form-control" id="doctorSearchInput" placeholder="搜索医生姓名或医院...">
+                        <button class="btn btn-outline-secondary" type="button" id="searchDoctorBtn">
+                            <i class="bi bi-search"></i>
+                        </button>
+                    </div>
+                    <div class="doctor-list-container border rounded p-2" style="max-height: 200px; overflow-y: auto;">
+                        <div id="doctorListContent">
+                            {% if available_doctors %}
+                                {% for doctor in available_doctors %}
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="collaborating_doctors" 
+                                           value="{{ doctor.id }}" id="doctor{{ doctor.id }}"
+                                           {% if collaborator_ids and doctor.id|string in collaborator_ids %}checked{% endif %}>
+                                    <label class="form-check-label" for="doctor{{ doctor.id }}">
+                                        {{ doctor.name or doctor.username }} 
+                                        ({{ doctor.institution or '未知医院' }}, {{ doctor.department or '未知科室' }})
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="text-center py-3">
+                                    <p class="text-muted mb-0">未找到可选择的协作医生</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="form-actions">
+                    <button type="submit" class="clinical-button">
+                        <i class="bi bi-save"></i> 保存更改
+                    </button>
+                    <a href="{{ url_for('doctor_view_project', project_id=project.id) }}" class="clinical-button secondary">
+                        <i class="bi bi-eye"></i> 查看项目
+                    </a>
+                    <button type="button" class="clinical-button danger" data-bs-toggle="modal" data-bs-target="#deleteProjectModal">
+                        <i class="bi bi-trash"></i> 删除项目
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 删除项目确认对话框 -->
+<div class="modal fade" id="deleteProjectModal" tabindex="-1" aria-labelledby="deleteProjectModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteProjectModalLabel">确认删除</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle-fill"></i> 警告：此操作不可逆转
+                </div>
+                <p>您确定要删除项目 <strong>{{ project.name }}</strong> 吗？</p>
+                <p>所有与该项目相关的数据都将被删除。</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <form method="POST" action="{{ url_for('doctor_delete_project', project_id=project.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger">确认删除</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.edit-project-container {
+    max-width: 800px;
+    margin: 20px auto;
+}
+
+.form-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-start;
+}
+
+.clinical-button.danger {
+    background-color: #dc3545;
+    color: white;
+    margin-left: auto;
+}
+
+.clinical-button.danger:hover {
+    background-color: #bb2d3b;
+}
+</style>
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 多中心模式复选框控制医生选择区域显示
+    const multiCenterCheckbox = document.getElementById('multi_center_mode');
+    const doctorSelectionArea = document.getElementById('doctorSelectionArea');
+    const doctorSearchInput = document.getElementById('doctorSearchInput');
+    const searchDoctorBtn = document.getElementById('searchDoctorBtn');
+    
+    // 设置初始显示状态
+    if (doctorSelectionArea) {
+        const isMultiCenter = doctorSelectionArea.getAttribute('data-multi-center') === 'true';
+        doctorSelectionArea.style.display = isMultiCenter ? 'block' : 'none';
+        
+        // 多中心模式切换事件
+        if (multiCenterCheckbox) {
+            multiCenterCheckbox.addEventListener('change', function() {
+                doctorSelectionArea.style.display = this.checked ? 'block' : 'none';
+            });
+        }
+    }
+    
+    // 搜索医生 AJAX 请求
+    function searchDoctors(searchTerm = '') {
+        const doctorListContent = document.getElementById('doctorListContent');
+        if (!doctorListContent) return;
+        
+        // 显示加载中
+        doctorListContent.innerHTML = `
+            <div class="text-center py-3">
+                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                    <span class="visually-hidden">加载中...</span>
+                </div>
+                <span class="ms-2">正在加载医生列表...</span>
+            </div>
+        `;
+        
+        // 发送AJAX请求获取医生列表
+        fetch('/api/available_doctors?search=' + encodeURIComponent(searchTerm), {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('网络请求失败');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.doctors && data.doctors.length > 0) {
+                // 记住已选中的医生ID列表
+                const selectedDoctors = Array.from(
+                    document.querySelectorAll('input[name="collaborating_doctors"]:checked')
+                ).map(input => input.value);
+                
+                // 渲染医生列表
+                let html = '';
+                data.doctors.forEach(doctor => {
+                    // 检查医生是否已选中
+                    const isChecked = selectedDoctors.includes(doctor.id.toString());
+                    
+                    html += `
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="collaborating_doctors" 
+                                   value="${doctor.id}" id="doctor${doctor.id}" ${isChecked ? 'checked' : ''}>
+                            <label class="form-check-label" for="doctor${doctor.id}">
+                                ${doctor.name} (${doctor.institution || '未知医院'}, ${doctor.department || '未知科室'})
+                            </label>
+                        </div>
+                    `;
+                });
+                doctorListContent.innerHTML = html;
+            } else {
+                // 没有找到医生
+                doctorListContent.innerHTML = `
+                    <div class="text-center py-3">
+                        <p class="text-muted mb-0">未找到可选择的协作医生</p>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('获取医生列表失败:', error);
+            doctorListContent.innerHTML = `
+                <div class="text-center py-3">
+                    <p class="text-danger mb-0">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                        加载医生列表失败，请刷新重试
+                    </p>
+                </div>
+            `;
+        });
+    }
+    
+    // 搜索按钮点击事件
+    if (searchDoctorBtn && doctorSearchInput) {
+        searchDoctorBtn.addEventListener('click', function() {
+            searchDoctors(doctorSearchInput.value.trim());
+        });
+        
+        // 回车键搜索
+        doctorSearchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                searchDoctors(this.value.trim());
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
+{% endblock %} 

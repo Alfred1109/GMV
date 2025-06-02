@@ -1,0 +1,289 @@
+{% extends "clinical_base.html" %}
+
+{% block title %}用户管理 - 医学临床科研专病数据管理平台{% endblock %}
+
+{% block sidebar %}
+<!-- 这里不添加侧边栏内容，以便主内容区域能够占据更多空间 -->
+{% endblock %}
+
+{% block content %}
+<!-- 添加自定义样式 -->
+<style>
+/* 覆盖基础模板中的样式，确保内容居中 */
+.col-md-9.col-lg-10.clinical-content {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+    padding: 15px !important;
+}
+
+/* 隐藏侧边栏 */
+.col-md-3.col-lg-2.clinical-sidebar {
+    display: none !important;
+}
+
+.dashboard-container {
+    width: 90%;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0 20px;
+    box-sizing: border-box;
+    max-width: 1800px;
+}
+
+/* 确保页面内容在任何缩放比例下都居中 */
+@media (min-width: 1200px) {
+    .dashboard-container {
+        width: 90%;
+    }
+}
+
+@media (min-width: 992px) and (max-width: 1199px) {
+    .dashboard-container {
+        width: 95%;
+    }
+}
+
+@media (max-width: 991px) {
+    .dashboard-container {
+        width: 98%;
+    }
+}
+</style>
+
+<div class="dashboard-container">
+    <div class="content-title text-center">
+        用户管理 <i class="bi bi-people-fill info-icon"></i>
+        <div class="float-end">
+            <button type="button" class="clinical-button" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                <i class="bi bi-person-plus me-1"></i>添加用户
+            </button>
+        </div>
+    </div>
+
+    <div class="dashboard-grid">
+        <!-- 用户列表 -->
+        <div class="clinical-info-box dashboard-box" style="flex: 1 1 100%;">
+            <div class="info-box-title">
+                用户列表
+            </div>
+            <div class="info-box-content">
+                <div class="table-responsive">
+                    <table class="clinical-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>用户名</th>
+                                <th>姓名</th>
+                                <th>性别</th>
+                                <th>邮箱</th>
+                                <th>联系电话</th>
+                                <th>单位</th>
+                                <th>科室</th>
+                                <th>职称</th>
+                                <th>角色</th>
+                                <th>创建时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr>
+                                <td>{{ user.id }}</td>
+                                <td>{{ user.username }}</td>
+                                <td>{{ user.name or '-' }}</td>
+                                <td>{{ user.gender or '-' }}</td>
+                                <td>{{ user.email }}</td>
+                                <td>{{ user.phone or '-' }}</td>
+                                <td>{{ user.institution or '-' }}</td>
+                                <td>{{ user.department or '-' }}</td>
+                                <td>{{ user.professional_title or '-' }}</td>
+                                <td>
+                                    {% if user.role == 'admin' %}
+                                        <span class="status-available">管理员</span>
+                                    {% else %}
+                                        <span class="status-available" style="background-color: #336699;">医生</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+                                <td>
+                                    <button class="clinical-button edit-user" data-id="{{ user.id }}">编辑</button>
+                                    <button class="clinical-button delete-user" data-id="{{ user.id }}" style="background-color: #dc3545;">删除</button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 用户统计 -->
+        <div class="clinical-info-box dashboard-box">
+            <div class="info-box-title">
+                用户统计
+            </div>
+            <div class="info-box-content">
+                <div class="enrollment-progress mb-3">
+                    <div class="enrollment-bar" style="width: 60%">
+                        医生: {{ (users|selectattr('role', 'equalto', 'doctor')|list|length / users|length * 100)|round|int if users|length > 0 else 0 }}%
+                    </div>
+                </div>
+                <div class="enrollment-progress mb-3">
+                    <div class="enrollment-bar" style="width: 40%; background-color: #6c757d;">
+                        管理员: {{ (users|selectattr('role', 'equalto', 'admin')|list|length / users|length * 100)|round|int if users|length > 0 else 0 }}%
+                    </div>
+                </div>
+                
+                <div class="text-center mt-4">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="stat-box">
+                                <div class="stat-value">{{ users|length }}</div>
+                                <div class="stat-label">总用户数</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="stat-box">
+                                <div class="stat-value">{{ users|selectattr('role', 'equalto', 'doctor')|list|length }}</div>
+                                <div class="stat-label">医生用户数</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 近期活动 -->
+        <div class="clinical-info-box dashboard-box">
+            <div class="info-box-title">
+                近期用户活动
+            </div>
+            <div class="info-box-content">
+                <table class="clinical-table">
+                    <thead>
+                        <tr>
+                            <th>用户</th>
+                            <th>操作</th>
+                            <th>时间</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>admin</td>
+                            <td>登录系统</td>
+                            <td>{{ now().strftime('%Y-%m-%d %H:%M') }}</td>
+                        </tr>
+                        <tr>
+                            <td>doctor</td>
+                            <td>创建新项目</td>
+                            <td>{{ (now() - timedelta(hours=2)).strftime('%Y-%m-%d %H:%M') }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 添加用户模态框 -->
+<div class="modal fade" id="addUserModal" tabindex="-1" aria-labelledby="addUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addUserModalLabel">添加用户</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('add_user') }}" method="POST">
+                <div class="modal-body">
+                    {{ form.csrf_token }}
+                    <div class="mb-3">
+                        <label for="username" class="form-label">用户名</label>
+                        {{ form.username(class="form-control", id="username") }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">邮箱</label>
+                        {{ form.email(class="form-control", id="email") }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">密码</label>
+                        {{ form.password(class="form-control", id="password") }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="role" class="form-label">角色</label>
+                        {{ form.role(class="form-select", id="role") }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="name" class="form-label">姓名</label>
+                        {{ form.name(class="form-control", id="name") }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="gender" class="form-label">性别</label>
+                        {{ form.gender(class="form-select", id="gender") }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="phone" class="form-label">联系电话</label>
+                        {{ form.phone(class="form-control", id="phone") }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="center_name" class="form-label">中心名称</label>
+                        {{ form.center_name(class="form-control", id="center_name") }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="institution" class="form-label">单位</label>
+                        {{ form.institution(class="form-control", id="institution") }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="department" class="form-label">科室</label>
+                        {{ form.department(class="form-control", id="department") }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="professional_title" class="form-label">职称</label>
+                        {{ form.professional_title(class="form-control", id="professional_title") }}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="clinical-button">添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // 使用事件委托处理点击事件
+    document.addEventListener('DOMContentLoaded', function() {
+        // 编辑用户
+        document.querySelectorAll('.edit-user').forEach(function(button) {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                var userId = this.getAttribute('data-id');
+                editUser(userId);
+            });
+        });
+        
+        // 删除用户
+        document.querySelectorAll('.delete-user').forEach(function(button) {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                var userId = this.getAttribute('data-id');
+                deleteUser(userId);
+            });
+        });
+    });
+    
+    function editUser(userId) {
+        // 实现编辑用户功能
+        alert('编辑用户 ID: ' + userId);
+    }
+    
+    function deleteUser(userId) {
+        if (confirm('确定要删除该用户吗？')) {
+            // 实现删除用户功能
+            alert('删除用户 ID: ' + userId);
+        }
+    }
+</script>
+{% endblock %} 

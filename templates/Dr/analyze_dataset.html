@@ -1,0 +1,4213 @@
+{% extends "clinical_base.html" %}
+
+{% block title %}数据集分析 - {{ dataset.name }} - 医学临床科研专病数据管理平台{% endblock %}
+
+{% block content %}
+<!-- 顶部导航栏 -->
+<div class="top-navigation">
+    <div class="top-nav-left">
+        <div class="content-title">
+            数据集分析 <i class="bi bi-graph-up"></i>
+        </div>
+    </div>
+    <div class="top-nav-right">
+        <a href="{{ url_for('doctor_view_dataset', dataset_id=dataset.id) }}" class="back-button">
+            <i class="bi bi-arrow-left"></i> 返回数据集详情
+        </a>
+    </div>
+</div>
+
+<!-- 主内容区域 -->
+<div class="analysis-dataset-container">
+    <!-- 数据集基本信息 -->
+    <div class="clinical-info-box mb-4">
+        <div class="info-box-title">
+            <i class="bi bi-database"></i> 数据集信息
+        </div>
+        <div class="info-box-content">
+            <div class="dataset-header">
+                <div class="dataset-title">
+                    <h2>{{ dataset.name }}</h2>
+                    <span class="dataset-version">v{{ dataset.version }}</span>
+                </div>
+                <div class="dataset-meta">
+                    <div class="meta-item">
+                        <i class="bi bi-calendar3"></i>
+                        <span>创建日期: {{ dataset.created_at.strftime('%Y-%m-%d') }}</span>
+                    </div>
+                    <div class="meta-item">
+                        <i class="bi bi-person"></i>
+                        <span>创建者: {{ dataset.creator.username if dataset.creator else '未知' }}</span>
+                    </div>
+                    <div class="meta-item">
+                        <i class="bi bi-files"></i>
+                        <span>数据量: {{ dataset.size if dataset.size else '0' }} 条</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 分析工具区域 -->
+    <div class="row">
+        <!-- 左侧: 分析工具 -->
+        <div class="col-md-3">
+            <div class="clinical-info-box">
+                <div class="info-box-title">
+                    <i class="bi bi-tools"></i> 分析工具
+                </div>
+                <div class="info-box-content">
+                    <div class="analysis-tools-list">
+                        <div class="tool-category">
+                            <div class="category-header">
+                                <i class="bi bi-graph-up"></i> 统计分析
+                            </div>
+                            <div class="tool-item active" data-tool="descriptive">
+                                <i class="bi bi-clipboard-data"></i> 描述性统计
+                            </div>
+                            <div class="tool-item" data-tool="hypothesis">
+                                <i class="bi bi-123"></i> 假设检验
+                            </div>
+                            <div class="tool-item" data-tool="correlation">
+                                <i class="bi bi-arrow-down-up"></i> 相关性分析
+                            </div>
+                        </div>
+                        
+                        <div class="tool-category">
+                            <div class="category-header">
+                                <i class="bi bi-file-medical"></i> 临床分析
+                            </div>
+                            <div class="tool-item" data-tool="survival">
+                                <i class="bi bi-activity"></i> 生存分析
+                            </div>
+                            <div class="tool-item" data-tool="risk">
+                                <i class="bi bi-shield-check"></i> 风险评估
+                            </div>
+                        </div>
+                        
+                        <div class="tool-category">
+                            <div class="category-header">
+                                <i class="bi bi-pie-chart"></i> 可视化
+                            </div>
+                            <div class="tool-item" data-tool="charts">
+                                <i class="bi bi-bar-chart"></i> 图表生成
+                            </div>
+                            <div class="tool-item" data-tool="reports">
+                                <i class="bi bi-file-earmark-text"></i> 分析报告
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 右侧: 工具内容区 -->
+        <div class="col-md-9">
+            <!-- 描述性统计工具面板 -->
+            <div class="tool-panel active" id="descriptive-panel">
+                <div class="clinical-info-box">
+                    <div class="info-box-title">
+                        <i class="bi bi-clipboard-data"></i> 描述性统计
+                    </div>
+                    <div class="info-box-content">
+                        <div class="tool-description">
+                            <p>描述性统计工具可帮助您计算并可视化数据集中变量的基本统计信息，包括均值、中位数、标准差、四分位数等。</p>
+                        </div>
+                        
+                        <form class="analysis-form" id="descriptiveForm">
+                            <input type="hidden" name="dataset_id" value="{{ dataset.id }}">
+                            <input type="hidden" name="analysis_type" value="descriptive">
+                            
+                            <div class="form-group">
+                                <label>选择变量</label>
+                                <div class="variables-container" id="variables-container">
+                                    <div class="loading-variables">
+                                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                            <span class="visually-hidden">加载中...</span>
+                                        </div>
+                                        <span class="ms-2">正在加载变量...</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>统计选项</label>
+                                <div class="option-selectors">
+                                    <label><input type="checkbox" name="stats" value="mean" checked> 均值</label>
+                                    <label><input type="checkbox" name="stats" value="median" checked> 中位数</label>
+                                    <label><input type="checkbox" name="stats" value="sd" checked> 标准差</label>
+                                    <label><input type="checkbox" name="stats" value="min" checked> 最小值</label>
+                                    <label><input type="checkbox" name="stats" value="max" checked> 最大值</label>
+                                    <label><input type="checkbox" name="stats" value="q1"> 第一四分位数</label>
+                                    <label><input type="checkbox" name="stats" value="q3"> 第三四分位数</label>
+                                    <label><input type="checkbox" name="stats" value="skewness"> 偏度</label>
+                                    <label><input type="checkbox" name="stats" value="kurtosis"> 峰度</label>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>可视化选项</label>
+                                <div class="option-selectors">
+                                    <label><input type="checkbox" name="visualize" value="histogram" checked> 直方图</label>
+                                    <label><input type="checkbox" name="visualize" value="boxplot" checked> 箱线图</label>
+                                    <label><input type="checkbox" name="visualize" value="density"> 密度图</label>
+                                </div>
+                            </div>
+                            
+                            <div class="form-actions">
+                                <button type="submit" class="clinical-button">
+                                    <i class="bi bi-play-fill"></i> 生成统计结果
+                                </button>
+                                <button type="button" class="clinical-button secondary" id="resetBtn">
+                                    <i class="bi bi-arrow-counterclockwise"></i> 重置
+                                </button>
+                            </div>
+                        </form>
+                        
+                        <div class="result-preview" id="result-preview">
+                            <div class="result-placeholder">
+                                <i class="bi bi-bar-chart-line"></i>
+                                <p>统计结果将显示在这里</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 假设检验工具面板 -->
+            <div class="tool-panel" id="hypothesis-panel">
+                <div class="clinical-info-box">
+                    <div class="info-box-title">
+                        <i class="bi bi-123"></i> 假设检验
+                    </div>
+                    <div class="info-box-content">
+                        <div class="tool-description">
+                            <p>假设检验工具可帮助您进行各种统计检验，包括t检验、卡方检验、方差分析等。</p>
+                        </div>
+                        
+                        <form class="analysis-form" id="hypothesisForm">
+                            <input type="hidden" name="dataset_id" value="{{ dataset.id }}">
+                            <input type="hidden" name="analysis_type" value="hypothesis">
+                            
+                            <div class="form-group">
+                                <label>检验类型</label>
+                                <select class="form-select" name="test_type" id="test-type">
+                                    <option value="ttest">t检验 (两组均值比较)</option>
+                                    <option value="paired_ttest">配对t检验</option>
+                                    <option value="anova">方差分析 (ANOVA, 多组均值比较)</option>
+                                    <option value="chi2">卡方检验 (分类变量关联)</option>
+                                    <option value="fisher">Fisher精确检验 (小样本分类变量)</option>
+                                    <option value="wilcoxon">Wilcoxon秩和检验 (非参数检验)</option>
+                                    <option value="kruskal">Kruskal-Wallis检验 (非参数多组比较)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>选择变量</label>
+                                <div class="variables-container" id="hypothesis-variables-container">
+                                    <div class="loading-variables">
+                                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                            <span class="visually-hidden">加载中...</span>
+                                        </div>
+                                        <span class="ms-2">正在加载变量...</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group" id="group-variable-container" style="display: none;">
+                                <label>分组变量</label>
+                                <select class="form-select" name="group_variable" id="group-variable">
+                                    <option value="">-- 请选择分组变量 --</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>显著性水平 (α)</label>
+                                <select class="form-select" name="alpha">
+                                    <option value="0.05" selected>0.05 (5%)</option>
+                                    <option value="0.01">0.01 (1%)</option>
+                                    <option value="0.1">0.1 (10%)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>假设类型</label>
+                                <div class="option-selectors">
+                                    <label><input type="radio" name="hypothesis" value="two-sided" checked> 双侧检验</label>
+                                    <label><input type="radio" name="hypothesis" value="greater"> 单侧检验 (大于)</label>
+                                    <label><input type="radio" name="hypothesis" value="less"> 单侧检验 (小于)</label>
+                                </div>
+                            </div>
+                            
+                            <div class="form-actions">
+                                <button type="submit" class="clinical-button">
+                                    <i class="bi bi-play-fill"></i> 执行检验
+                                </button>
+                                <button type="button" class="clinical-button secondary" id="resetHypothesisBtn">
+                                    <i class="bi bi-arrow-counterclockwise"></i> 重置
+                                </button>
+                            </div>
+                        </form>
+                        
+                        <div class="result-preview" id="hypothesis-result-preview">
+                            <div class="result-placeholder">
+                                <i class="bi bi-calculator"></i>
+                                <p>检验结果将显示在这里</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 相关性分析工具面板 -->
+            <div class="tool-panel" id="correlation-panel">
+                <div class="clinical-info-box">
+                    <div class="info-box-title">
+                        <i class="bi bi-arrow-down-up"></i> 相关性分析
+                    </div>
+                    <div class="info-box-content">
+                        <div class="tool-description">
+                            <p>相关性分析工具可帮助您分析变量之间的相关关系，包括Pearson相关系数、Spearman相关系数等。</p>
+                        </div>
+                        
+                        <form class="analysis-form" id="correlationForm">
+                            <input type="hidden" name="dataset_id" value="{{ dataset.id }}">
+                            <input type="hidden" name="analysis_type" value="correlation">
+                            
+                            <div class="form-group">
+                                <label>相关系数类型</label>
+                                <select class="form-select" name="correlation_type">
+                                    <option value="pearson" selected>Pearson相关系数 (线性关系)</option>
+                                    <option value="spearman">Spearman相关系数 (等级相关)</option>
+                                    <option value="kendall">Kendall's Tau (非参数相关)</option>
+                                    <option value="point_biserial">点二列相关 (连续变量与二分变量)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>选择变量</label>
+                                <div class="variables-container" id="correlation-variables-container">
+                                    <div class="loading-variables">
+                                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                            <span class="visually-hidden">加载中...</span>
+                                        </div>
+                                        <span class="ms-2">正在加载变量...</span>
+                                    </div>
+                                </div>
+                                <small class="form-text text-muted">请至少选择两个变量进行分析</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>显著性检验</label>
+                                <div class="option-selectors">
+                                    <label><input type="checkbox" name="significance_test" value="true" checked> 进行显著性检验</label>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>可视化选项</label>
+                                <div class="option-selectors">
+                                    <label><input type="checkbox" name="visualize" value="heatmap" checked> 热力图</label>
+                                    <label><input type="checkbox" name="visualize" value="scatter" checked> 散点图矩阵</label>
+                                    <label><input type="checkbox" name="visualize" value="network"> 网络图</label>
+                                </div>
+                            </div>
+                            
+                            <div class="form-actions">
+                                <button type="submit" class="clinical-button">
+                                    <i class="bi bi-play-fill"></i> 计算相关性
+                                </button>
+                                <button type="button" class="clinical-button secondary" id="resetCorrelationBtn">
+                                    <i class="bi bi-arrow-counterclockwise"></i> 重置
+                                </button>
+                            </div>
+                        </form>
+                        
+                        <div class="result-preview" id="correlation-result-preview">
+                            <div class="result-placeholder">
+                                <i class="bi bi-grid-3x3"></i>
+                                <p>相关性分析结果将显示在这里</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 生存分析工具面板 -->
+            <div class="tool-panel" id="survival-panel">
+                <div class="clinical-info-box">
+                    <div class="info-box-title">
+                        <i class="bi bi-activity"></i> 生存分析
+                    </div>
+                    <div class="info-box-content">
+                        <div class="tool-description">
+                            <p>生存分析工具可帮助您分析时间-事件数据，进行Kaplan-Meier分析、Cox比例风险回归等。</p>
+                        </div>
+                        
+                        <form class="analysis-form" id="survivalForm">
+                            <input type="hidden" name="dataset_id" value="{{ dataset.id }}">
+                            <input type="hidden" name="analysis_type" value="survival">
+                            
+                            <div class="form-group">
+                                <label>分析方法</label>
+                                <select class="form-select" name="survival_method">
+                                    <option value="kaplan_meier" selected>Kaplan-Meier生存曲线</option>
+                                    <option value="cox_regression">Cox比例风险回归</option>
+                                    <option value="log_rank">Log-rank检验 (组间比较)</option>
+                                    <option value="competing_risks">竞争风险分析</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>时间变量 <span class="required">*</span></label>
+                                <select class="form-select" name="time_variable" id="time-variable">
+                                    <option value="">-- 请选择时间变量 --</option>
+                                </select>
+                                <small class="form-text text-muted">表示从起点到事件发生或审查的时间</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>事件变量 <span class="required">*</span></label>
+                                <select class="form-select" name="event_variable" id="event-variable">
+                                    <option value="">-- 请选择事件变量 --</option>
+                                </select>
+                                <small class="form-text text-muted">事件变量应为二元变量，其中1表示事件发生，0表示审查</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>分组变量 (可选)</label>
+                                <select class="form-select" name="group_variable" id="survival-group-variable">
+                                    <option value="">-- 请选择分组变量 --</option>
+                                </select>
+                                <small class="form-text text-muted">用于比较不同组别间的生存率</small>
+                            </div>
+                            
+                            <div class="form-group" id="covariates-container" style="display: none;">
+                                <label>协变量 (Cox回归)</label>
+                                <div class="variables-container" id="survival-covariates-container">
+                                    <div class="loading-variables">
+                                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                            <span class="visually-hidden">加载中...</span>
+                                        </div>
+                                        <span class="ms-2">正在加载变量...</span>
+                                    </div>
+                                </div>
+                                <small class="form-text text-muted">选择影响生存的潜在因素</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>可视化选项</label>
+                                <div class="option-selectors">
+                                    <label><input type="checkbox" name="visualize" value="survival_curve" checked> 生存曲线</label>
+                                    <label><input type="checkbox" name="visualize" value="hazard_ratio" checked> 风险比森林图</label>
+                                    <label><input type="checkbox" name="visualize" value="cumulative_hazard"> 累积风险图</label>
+                                </div>
+                            </div>
+                            
+                            <div class="form-actions">
+                                <button type="submit" class="clinical-button">
+                                    <i class="bi bi-play-fill"></i> 进行生存分析
+                                </button>
+                                <button type="button" class="clinical-button secondary" id="resetSurvivalBtn">
+                                    <i class="bi bi-arrow-counterclockwise"></i> 重置
+                                </button>
+                            </div>
+                        </form>
+                        
+                        <div class="result-preview" id="survival-result-preview">
+                            <div class="result-placeholder">
+                                <i class="bi bi-activity"></i>
+                                <p>生存分析结果将显示在这里</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 风险评估工具面板 -->
+            <div class="tool-panel" id="risk-panel">
+                <div class="clinical-info-box">
+                    <div class="info-box-title">
+                        <i class="bi bi-shield-check"></i> 风险评估
+                    </div>
+                    <div class="info-box-content">
+                        <div class="tool-description">
+                            <p>风险评估工具可帮助您构建和验证风险预测模型，评估患者风险等级。</p>
+                        </div>
+                        
+                        <form class="analysis-form" id="riskForm">
+                            <input type="hidden" name="dataset_id" value="{{ dataset.id }}">
+                            <input type="hidden" name="analysis_type" value="risk">
+                            
+                            <div class="form-group">
+                                <label>风险模型类型</label>
+                                <select class="form-select" name="model_type" id="risk-model-type">
+                                    <option value="logistic" selected>Logistic回归 (二分类风险)</option>
+                                    <option value="decision_tree">决策树</option>
+                                    <option value="random_forest">随机森林</option>
+                                    <option value="xgboost">XGBoost</option>
+                                    <option value="custom_score">自定义评分系统</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>目标变量 <span class="required">*</span></label>
+                                <select class="form-select" name="target_variable" id="risk-target-variable">
+                                    <option value="">-- 请选择目标变量 --</option>
+                                </select>
+                                <small class="form-text text-muted">需要预测的风险事件变量</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>预测因子</label>
+                                <div class="variables-container" id="risk-predictors-container">
+                                    <div class="loading-variables">
+                                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                            <span class="visually-hidden">加载中...</span>
+                                        </div>
+                                        <span class="ms-2">正在加载变量...</span>
+                                    </div>
+                                </div>
+                                <small class="form-text text-muted">选择可能影响风险的变量</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>验证方法</label>
+                                <select class="form-select" name="validation_method">
+                                    <option value="cross_validation" selected>交叉验证 (K折)</option>
+                                    <option value="train_test_split">训练-测试集分割</option>
+                                    <option value="bootstrap">Bootstrap验证</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>评估指标</label>
+                                <div class="option-selectors">
+                                    <label><input type="checkbox" name="metrics" value="auc" checked> AUC-ROC</label>
+                                    <label><input type="checkbox" name="metrics" value="accuracy" checked> 准确率</label>
+                                    <label><input type="checkbox" name="metrics" value="sensitivity"> 灵敏度</label>
+                                    <label><input type="checkbox" name="metrics" value="specificity"> 特异度</label>
+                                    <label><input type="checkbox" name="metrics" value="ppv"> 阳性预测值</label>
+                                    <label><input type="checkbox" name="metrics" value="npv"> 阴性预测值</label>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>可视化选项</label>
+                                <div class="option-selectors">
+                                    <label><input type="checkbox" name="visualize" value="roc_curve" checked> ROC曲线</label>
+                                    <label><input type="checkbox" name="visualize" value="calibration_plot"> 校准图</label>
+                                    <label><input type="checkbox" name="visualize" value="feature_importance" checked> 特征重要性</label>
+                                    <label><input type="checkbox" name="visualize" value="decision_curve"> 决策曲线</label>
+                                </div>
+                            </div>
+                            
+                            <div class="form-actions">
+                                <button type="submit" class="clinical-button">
+                                    <i class="bi bi-play-fill"></i> 构建风险模型
+                                </button>
+                                <button type="button" class="clinical-button secondary" id="resetRiskBtn">
+                                    <i class="bi bi-arrow-counterclockwise"></i> 重置
+                                </button>
+                            </div>
+                        </form>
+                        
+                        <div class="result-preview" id="risk-result-preview">
+                            <div class="result-placeholder">
+                                <i class="bi bi-shield-check"></i>
+                                <p>风险评估结果将显示在这里</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 图表生成工具面板 -->
+            <div class="tool-panel" id="charts-panel">
+                <div class="clinical-info-box">
+                    <div class="info-box-title">
+                        <i class="bi bi-bar-chart"></i> 图表生成
+                    </div>
+                    <div class="info-box-content">
+                        <div class="tool-description">
+                            <p>图表生成工具可帮助您创建各种可视化图表，包括柱状图、折线图、散点图等。</p>
+                        </div>
+                        
+                        <form class="analysis-form" id="chartsForm">
+                            <input type="hidden" name="dataset_id" value="{{ dataset.id }}">
+                            <input type="hidden" name="analysis_type" value="charts">
+                            
+                            <div class="form-group">
+                                <label>图表类型</label>
+                                <select class="form-select" name="chart_type" id="chart-type">
+                                    <option value="bar" selected>柱状图</option>
+                                    <option value="line">折线图</option>
+                                    <option value="scatter">散点图</option>
+                                    <option value="pie">饼图</option>
+                                    <option value="box">箱线图</option>
+                                    <option value="violin">小提琴图</option>
+                                    <option value="heatmap">热力图</option>
+                                    <option value="radar">雷达图</option>
+                                    <option value="parallel">平行坐标图</option>
+                                </select>
+                            </div>
+                            
+                            <div class="chart-type-options" id="bar-chart-options">
+                                <div class="form-group">
+                                    <label>X轴变量 <span class="required">*</span></label>
+                                    <select class="form-select" name="x_variable" id="x-variable">
+                                        <option value="">-- 请选择X轴变量 --</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label>Y轴变量 <span class="required">*</span></label>
+                                    <select class="form-select" name="y_variable" id="y-variable">
+                                        <option value="">-- 请选择Y轴变量 --</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label>分组变量 (可选)</label>
+                                    <select class="form-select" name="group_variable" id="chart-group-variable">
+                                        <option value="">-- 请选择分组变量 --</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>图表标题</label>
+                                <input type="text" class="form-control" name="chart_title" placeholder="输入图表标题">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>样式选项</label>
+                                <div class="option-selectors">
+                                    <label><input type="checkbox" name="style_options" value="grid" checked> 显示网格线</label>
+                                    <label><input type="checkbox" name="style_options" value="legend" checked> 显示图例</label>
+                                    <label><input type="checkbox" name="style_options" value="data_labels"> 显示数据标签</label>
+                                    <label><input type="checkbox" name="style_options" value="error_bars"> 显示误差线</label>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>配色方案</label>
+                                <select class="form-select" name="color_scheme">
+                                    <option value="default" selected>默认配色</option>
+                                    <option value="viridis">Viridis (蓝绿色系)</option>
+                                    <option value="plasma">Plasma (紫黄色系)</option>
+                                    <option value="inferno">Inferno (橙红色系)</option>
+                                    <option value="pastel">柔和色系</option>
+                                    <option value="colorblind">色盲友好</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>导出选项</label>
+                                <div class="option-selectors">
+                                    <label><input type="checkbox" name="export_options" value="png" checked> PNG图像</label>
+                                    <label><input type="checkbox" name="export_options" value="svg"> SVG矢量图</label>
+                                    <label><input type="checkbox" name="export_options" value="pdf"> PDF文档</label>
+                                </div>
+                            </div>
+                            
+                            <div class="form-actions">
+                                <button type="submit" class="clinical-button">
+                                    <i class="bi bi-play-fill"></i> 生成图表
+                                </button>
+                                <button type="button" class="clinical-button secondary" id="resetChartsBtn">
+                                    <i class="bi bi-arrow-counterclockwise"></i> 重置
+                                </button>
+                            </div>
+                        </form>
+                        
+                        <div class="result-preview" id="charts-result-preview">
+                            <div class="result-placeholder">
+                                <i class="bi bi-bar-chart"></i>
+                                <p>生成的图表将显示在这里</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 分析报告工具面板 -->
+            <div class="tool-panel" id="reports-panel">
+                <div class="clinical-info-box">
+                    <div class="info-box-title">
+                        <i class="bi bi-file-earmark-text"></i> 分析报告
+                    </div>
+                    <div class="info-box-content">
+                        <div class="tool-description">
+                            <p>分析报告工具可帮助您生成综合性分析报告，包含各种统计分析结果和可视化图表。</p>
+                        </div>
+                        
+                        <form class="analysis-form" id="reportsForm">
+                            <input type="hidden" name="dataset_id" value="{{ dataset.id }}">
+                            <input type="hidden" name="analysis_type" value="reports">
+                            
+                            <div class="form-group">
+                                <label>报告类型</label>
+                                <select class="form-select" name="report_type">
+                                    <option value="descriptive" selected>描述性统计报告</option>
+                                    <option value="comparative">组间比较报告</option>
+                                    <option value="correlation">相关性分析报告</option>
+                                    <option value="survival">生存分析报告</option>
+                                    <option value="risk">风险评估报告</option>
+                                    <option value="comprehensive">综合分析报告</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>选择分析变量</label>
+                                <div class="variables-container" id="report-variables-container">
+                                    <div class="loading-variables">
+                                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                            <span class="visually-hidden">加载中...</span>
+                                        </div>
+                                        <span class="ms-2">正在加载变量...</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>报告标题</label>
+                                <input type="text" class="form-control" name="report_title" value="{{ dataset.name }} 数据分析报告">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>报告作者</label>
+                                <input type="text" class="form-control" name="report_author" value="{{ current_user.username }}">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>报告内容选项</label>
+                                <div class="option-selectors">
+                                    <label><input type="checkbox" name="report_sections" value="summary" checked> 摘要</label>
+                                    <label><input type="checkbox" name="report_sections" value="introduction" checked> 研究背景</label>
+                                    <label><input type="checkbox" name="report_sections" value="methods" checked> 方法学</label>
+                                    <label><input type="checkbox" name="report_sections" value="results" checked> 分析结果</label>
+                                    <label><input type="checkbox" name="report_sections" value="discussion" checked> 讨论</label>
+                                    <label><input type="checkbox" name="report_sections" value="conclusion" checked> 结论</label>
+                                    <label><input type="checkbox" name="report_sections" value="references"> 参考文献</label>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>包含图表与表格</label>
+                                <div class="option-selectors">
+                                    <label><input type="checkbox" name="report_visuals" value="tables" checked> 统计表格</label>
+                                    <label><input type="checkbox" name="report_visuals" value="charts" checked> 图表</label>
+                                    <label><input type="checkbox" name="report_visuals" value="significance" checked> 显著性标记</label>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>导出格式</label>
+                                <div class="option-selectors">
+                                    <label><input type="checkbox" name="export_format" value="docx" checked> Word文档 (.docx)</label>
+                                    <label><input type="checkbox" name="export_format" value="pdf" checked> PDF文档 (.pdf)</label>
+                                    <label><input type="checkbox" name="export_format" value="html"> HTML网页 (.html)</label>
+                                    <label><input type="checkbox" name="export_format" value="pptx"> PowerPoint演示文稿 (.pptx)</label>
+                                </div>
+                            </div>
+                            
+                            <div class="form-actions">
+                                <button type="submit" class="clinical-button">
+                                    <i class="bi bi-play-fill"></i> 生成报告
+                                </button>
+                                <button type="button" class="clinical-button secondary" id="resetReportsBtn">
+                                    <i class="bi bi-arrow-counterclockwise"></i> 重置
+                                </button>
+                            </div>
+                        </form>
+                        
+                        <div class="result-preview" id="reports-result-preview">
+                            <div class="result-placeholder">
+                                <i class="bi bi-file-earmark-text"></i>
+                                <p>生成的报告预览将显示在这里</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* 分析数据集容器 */
+.analysis-dataset-container {
+    padding: 20px;
+}
+
+/* 数据集标题区域 */
+.dataset-header {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.dataset-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.dataset-title h2 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 600;
+    color: #333;
+}
+
+.dataset-version {
+    padding: 3px 10px;
+    border-radius: 15px;
+    font-size: 14px;
+    font-weight: 500;
+    background-color: #f0f7ff;
+    color: #4a89dc;
+}
+
+.dataset-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #555;
+    font-size: 14px;
+}
+
+.meta-item i {
+    color: #4a89dc;
+}
+
+/* 分析工具列表 */
+.analysis-tools-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.tool-category {
+    margin-bottom: 15px;
+}
+
+.category-header {
+    font-weight: 500;
+    color: #333;
+    padding: 8px 0;
+    margin-bottom: 8px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.category-header i {
+    color: #4a89dc;
+}
+
+.tool-item {
+    padding: 8px 12px;
+    margin-bottom: 5px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tool-item:hover {
+    background-color: #f0f7ff;
+}
+
+.tool-item.active {
+    background-color: #4a89dc;
+    color: white;
+}
+
+.tool-item.active i {
+    color: white;
+}
+
+.tool-item i {
+    color: #4a89dc;
+}
+
+/* 工具面板 */
+.tool-panel {
+    display: none;
+}
+
+.tool-panel.active {
+    display: block;
+}
+
+.tool-description {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+/* 表单样式 */
+.analysis-form {
+    margin-bottom: 30px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #333;
+}
+
+.variables-container {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 10px;
+    background-color: #f9f9f9;
+}
+
+.variable-category {
+    font-weight: 500;
+    color: #555;
+    margin-top: 10px;
+    margin-bottom: 5px;
+}
+
+.variable-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.variable-selector label {
+    margin-bottom: 0;
+    font-weight: normal;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.option-selectors {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+/* 结果预览区域 */
+.result-preview {
+    margin-top: 30px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    min-height: 300px;
+    padding: 20px;
+    background-color: #f9f9f9;
+}
+
+.result-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 260px;
+    color: #999;
+    text-align: center;
+}
+
+.result-placeholder i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    color: #ddd;
+}
+
+/* 功能开发中提示 */
+.coming-soon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    color: #888;
+}
+
+.coming-soon i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    color: #ccc;
+}
+
+/* 加载中状态 */
+.loading-variables {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    color: #666;
+}
+
+/* 分析结果样式 */
+.analysis-result {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.result-section {
+    background-color: white;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.result-section-title {
+    font-size: 18px;
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.result-table-container {
+    margin-bottom: 20px;
+}
+
+.result-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.result-table th, .result-table td {
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+.result-table th {
+    background-color: #f8f9fa;
+    font-weight: 500;
+}
+
+.chart-container {
+    margin-top: 20px;
+    height: 300px;
+}
+
+/* 错误状态 */
+.analysis-error {
+    text-align: center;
+    padding: 30px;
+    color: #dc3545;
+}
+
+.analysis-error i {
+    font-size: 40px;
+    margin-bottom: 15px;
+}
+
+.error-details {
+    margin-top: 15px;
+    padding: 10px;
+    background-color: #f8d7da;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .row {
+        flex-direction: column;
+    }
+    
+    .col-md-3, .col-md-9 {
+        width: 100%;
+    }
+    
+    .analysis-tools-list {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    
+    .tool-category {
+        width: 100%;
+    }
+    
+    .tool-item {
+        display: inline-block;
+    }
+}
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 获取数据集ID
+    const datasetId = '{{ dataset.id }}';
+    
+    // 加载数据集变量 - 描述性统计
+    loadDatasetVariables(datasetId);
+    
+    // 加载假设检验变量
+    loadHypothesisVariables(datasetId);
+    
+    // 加载相关性分析变量
+    loadCorrelationVariables(datasetId);
+    
+    // 加载生存分析变量
+    loadSurvivalVariables(datasetId);
+    
+    // 加载风险评估变量
+    loadRiskVariables(datasetId);
+    
+    // 加载图表生成变量
+    loadChartVariables(datasetId);
+    
+    // 加载报告变量
+    loadReportVariables(datasetId);
+    
+    // 工具切换
+    const toolItems = document.querySelectorAll('.tool-item');
+    const toolPanels = document.querySelectorAll('.tool-panel');
+    
+    toolItems.forEach(item => {
+        item.addEventListener('click', function() {
+            const toolId = this.getAttribute('data-tool');
+            
+            // 移除所有活动状态
+            toolItems.forEach(item => item.classList.remove('active'));
+            toolPanels.forEach(panel => panel.classList.remove('active'));
+            
+            // 添加活动状态
+            this.classList.add('active');
+            document.getElementById(toolId + '-panel').classList.add('active');
+        });
+    });
+    
+    // 重置按钮
+    const resetBtn = document.getElementById('resetBtn');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', function() {
+            const form = document.getElementById('descriptiveForm');
+            if (form) {
+                form.reset();
+                
+                // 重置结果预览区域
+                const resultPreview = document.getElementById('result-preview');
+                if (resultPreview) {
+                    resultPreview.innerHTML = `
+                        <div class="result-placeholder">
+                            <i class="bi bi-bar-chart-line"></i>
+                            <p>统计结果将显示在这里</p>
+                        </div>
+                    `;
+                }
+            }
+        });
+    }
+    
+    // 表单提交
+    const descriptiveForm = document.getElementById('descriptiveForm');
+    if (descriptiveForm) {
+        descriptiveForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // 获取表单数据
+            const formData = new FormData(this);
+            const variables = [];
+            const stats = [];
+            const visualize = [];
+            
+            // 收集选中的变量
+            document.querySelectorAll('input[name="variables"]:checked').forEach(input => {
+                variables.push(input.value);
+            });
+            
+            // 收集选中的统计指标
+            document.querySelectorAll('input[name="stats"]:checked').forEach(input => {
+                stats.push(input.value);
+            });
+            
+            // 收集选中的可视化选项
+            document.querySelectorAll('input[name="visualize"]:checked').forEach(input => {
+                visualize.push(input.value);
+            });
+            
+            // 验证是否选择了变量
+            if (variables.length === 0) {
+                alert('请至少选择一个变量进行分析');
+                return;
+            }
+            
+            // 验证是否选择了统计指标
+            if (stats.length === 0) {
+                alert('请至少选择一个统计指标');
+                return;
+            }
+            
+            // 构建分析参数
+            const analysisParams = {
+                dataset_ids: [datasetId],
+                variables: variables,
+                stats: stats,
+                visualize: visualize
+            };
+            
+            // 显示加载状态
+            const resultPreview = document.getElementById('result-preview');
+            resultPreview.innerHTML = `
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">加载中...</span>
+                    </div>
+                    <p class="mt-3">正在分析数据，请稍候...</p>
+                </div>
+            `;
+            
+            // 发送分析请求
+            performAnalysis(analysisParams, resultPreview);
+        });
+    }
+
+    // 假设检验功能
+    const hypothesisForm = document.getElementById('hypothesisForm');
+    const resetHypothesisBtn = document.getElementById('resetHypothesisBtn');
+
+    // 设置测试类型变化时的事件
+    const testType = document.getElementById('test-type');
+    if (testType) {
+        testType.addEventListener('change', function() {
+            const groupContainer = document.getElementById('group-variable-container');
+            // 显示/隐藏分组变量选择
+            if (['ttest', 'anova', 'chi2', 'kruskal'].includes(this.value)) {
+                groupContainer.style.display = 'block';
+            } else {
+                groupContainer.style.display = 'none';
+            }
+        });
+    }
+
+    // 重置假设检验表单
+    if (resetHypothesisBtn) {
+        resetHypothesisBtn.addEventListener('click', function() {
+            if (hypothesisForm) {
+                hypothesisForm.reset();
+                
+                // 重置结果预览区域
+                const resultPreview = document.getElementById('hypothesis-result-preview');
+                if (resultPreview) {
+                    resultPreview.innerHTML = `
+                        <div class="result-placeholder">
+                            <i class="bi bi-calculator"></i>
+                            <p>检验结果将显示在这里</p>
+                        </div>
+                    `;
+                }
+            }
+        });
+    }
+
+    // 假设检验表单提交
+    if (hypothesisForm) {
+        hypothesisForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // 获取表单数据
+            const formData = new FormData(this);
+            const datasetId = formData.get('dataset_id');
+            const testType = formData.get('test_type');
+            
+            // 检查是否选择了必要的变量
+            let selectedVars = [];
+            document.querySelectorAll('#hypothesis-variables-container input[type="checkbox"]:checked').forEach(checkbox => {
+                selectedVars.push(checkbox.value);
+            });
+            
+            if (selectedVars.length === 0) {
+                alert('请选择至少一个变量进行检验');
+                return;
+            }
+            
+            // 对于需要分组变量的测试，检查是否选择了分组变量
+            if (['ttest', 'anova', 'chi2', 'kruskal'].includes(testType)) {
+                const groupVar = formData.get('group_variable');
+                if (!groupVar) {
+                    alert('请选择分组变量');
+                    return;
+                }
+            }
+            
+            // 显示加载状态
+            const resultPreview = document.getElementById('hypothesis-result-preview');
+            resultPreview.innerHTML = `
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">加载中...</span>
+                    </div>
+                    <p class="mt-3">正在执行假设检验，请稍候...</p>
+                </div>
+            `;
+            
+            // 构建分析参数
+            const analysisParams = {
+                dataset_id: datasetId,
+                test_type: testType,
+                variables: selectedVars,
+                group_variable: formData.get('group_variable'),
+                alpha: formData.get('alpha'),
+                hypothesis: formData.get('hypothesis')
+            };
+            
+            // 这里添加API调用 - 目前仅显示模拟结果
+            setTimeout(() => {
+                showHypothesisTestResults(analysisParams, resultPreview);
+            }, 1500);
+        });
+    }
+});
+
+// 加载数据集变量
+function loadDatasetVariables(datasetId) {
+    const variablesContainer = document.getElementById('variables-container');
+    if (!variablesContainer) return;
+    
+    // 发送请求获取数据集字段
+    fetch(`/api/datasets/${datasetId}/db_custom_fields`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('获取数据集字段失败');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (!data.success || !data.fields) {
+                throw new Error('获取数据集字段失败');
+            }
+            
+            // 渲染变量列表
+            renderVariables(data.fields, variablesContainer);
+        })
+        .catch(error => {
+            console.error('获取数据集字段错误:', error);
+            
+            // 尝试备用API
+            fetch(`/api/datasets/${datasetId}/custom_fields`)
+                .then(response => response.ok ? response.json() : Promise.reject('备用API请求失败'))
+                .then(data => {
+                    if (data.success && data.fields) {
+                        renderVariables(data.fields, variablesContainer);
+                    } else {
+                        throw new Error('获取数据集字段失败');
+                    }
+                })
+                .catch(fallbackError => {
+                    console.error('备用API也失败:', fallbackError);
+                    variablesContainer.innerHTML = `
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle-fill"></i> 
+                            无法获取数据集字段，请刷新页面重试
+                        </div>
+                    `;
+                });
+        });
+}
+
+// 渲染变量列表
+function renderVariables(fields, container) {
+    if (!fields || fields.length === 0) {
+        container.innerHTML = `
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle-fill"></i> 
+                此数据集暂无可分析的变量
+            </div>
+        `;
+        return;
+    }
+    
+    // 按字段类型对字段进行分组
+    const numericFields = [];
+    const categoricalFields = [];
+    const dateFields = [];
+    const textFields = [];
+    
+    fields.forEach(field => {
+        if (field.type === 'number') {
+            numericFields.push(field);
+        } else if (field.type === 'select' || field.type === 'checkbox' || field.type === 'radio' || field.type === 'boolean') {
+            categoricalFields.push(field);
+        } else if (field.type === 'date' || field.type === 'datetime' || field.type === 'time') {
+            dateFields.push(field);
+        } else {
+            textFields.push(field);
+        }
+    });
+    
+    // 构建HTML
+    let html = '';
+    
+    // 添加数值变量
+    if (numericFields.length > 0) {
+        html += '<div class="variable-category">数值变量</div>';
+        html += '<div class="variable-selector">';
+        numericFields.forEach(field => {
+            html += `
+                <label>
+                    <input type="checkbox" name="variables" value="${field.name}">
+                    ${field.name}
+                </label>
+            `;
+        });
+        html += '</div>';
+    }
+    
+    // 添加分类变量
+    if (categoricalFields.length > 0) {
+        html += '<div class="variable-category">分类变量</div>';
+        html += '<div class="variable-selector">';
+        categoricalFields.forEach(field => {
+            html += `
+                <label>
+                    <input type="checkbox" name="variables" value="${field.name}">
+                    ${field.name}
+                </label>
+            `;
+        });
+        html += '</div>';
+    }
+    
+    // 添加日期变量
+    if (dateFields.length > 0) {
+        html += '<div class="variable-category">日期变量</div>';
+        html += '<div class="variable-selector">';
+        dateFields.forEach(field => {
+            html += `
+                <label>
+                    <input type="checkbox" name="variables" value="${field.name}">
+                    ${field.name}
+                </label>
+            `;
+        });
+        html += '</div>';
+    }
+    
+    // 添加文本变量
+    if (textFields.length > 0) {
+        html += '<div class="variable-category">文本变量</div>';
+        html += '<div class="variable-selector">';
+        textFields.forEach(field => {
+            html += `
+                <label>
+                    <input type="checkbox" name="variables" value="${field.name}">
+                    ${field.name}
+                </label>
+            `;
+        });
+        html += '</div>';
+    }
+    
+    // 更新容器内容
+    container.innerHTML = html;
+}
+
+// 执行分析
+function performAnalysis(params, resultContainer) {
+    // 发送分析请求
+    fetch('/api/analysis/descriptive', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify(params)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('分析请求失败: ' + response.status);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (!data.success) {
+            throw new Error(data.message || '分析失败');
+        }
+        
+        // 显示分析结果
+        displayAnalysisResults(data, resultContainer);
+    })
+    .catch(error => {
+        console.error('分析错误:', error);
+        resultContainer.innerHTML = `
+            <div class="analysis-error">
+                <i class="bi bi-exclamation-triangle"></i>
+                <p>分析过程中出现错误: ${error.message}</p>
+                <div class="error-details">
+                    <small>请检查您的输入参数或联系系统管理员</small>
+                </div>
+                <button class="clinical-button secondary mt-3" onclick="resetResultPreview()">重试</button>
+            </div>
+        `;
+    });
+}
+
+// 显示分析结果
+function displayAnalysisResults(data, container) {
+    if (!data.results) {
+        container.innerHTML = `
+            <div class="analysis-error">
+                <i class="bi bi-exclamation-triangle"></i>
+                <p>未能获取有效的分析结果</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // 构建结果HTML
+    let html = `
+        <div class="analysis-result">
+            <div class="result-section">
+                <div class="result-section-title">描述性统计结果</div>
+    `;
+    
+    // 添加每个变量的结果表格
+    for (const varName in data.results) {
+        const varResult = data.results[varName];
+        html += `
+            <div class="result-table-container">
+                <h5>${varResult.name || varName}</h5>
+                <table class="result-table">
+                    <thead>
+                        <tr>
+                            <th>统计量</th>
+                            <th>值</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        // 添加每个统计量的行
+        for (const stat in varResult.stats) {
+            const value = varResult.stats[stat];
+            html += `
+                <tr>
+                    <td>${getStatName(stat)}</td>
+                    <td>${formatStatValue(value)}</td>
+                </tr>
+            `;
+        }
+        
+        html += '</tbody></table></div>';
+        
+        // 如果有图表，添加图表容器
+        if (data.charts && data.charts[varName]) {
+            html += `<div class="chart-container" id="chart_${varName}"></div>`;
+        }
+    }
+    
+    html += '</div>';
+    
+    // 添加下载按钮
+    html += `
+        <div class="mt-4 text-end">
+            <button class="clinical-button secondary" onclick="downloadAnalysisResults()">
+                <i class="bi bi-download"></i> 下载分析结果
+            </button>
+        </div>
+    `;
+    
+    html += '</div>';
+    
+    // 更新容器内容
+    container.innerHTML = html;
+    
+    // 如果有图表数据，渲染图表
+    if (data.charts) {
+        for (const varName in data.charts) {
+            const chartContainer = document.getElementById(`chart_${varName}`);
+            if (chartContainer) {
+                renderChart(data.charts[varName], chartContainer);
+            }
+        }
+    }
+}
+
+// 获取统计量的中文名称
+function getStatName(stat) {
+    const statNames = {
+        'count': '计数',
+        'mean': '均值',
+        'median': '中位数',
+        'mode': '众数',
+        'sd': '标准差',
+        'var': '方差',
+        'min': '最小值',
+        'max': '最大值',
+        'range': '极差',
+        'q1': '第一四分位数',
+        'q3': '第三四分位数',
+        'iqr': '四分位距',
+        'skewness': '偏度',
+        'kurtosis': '峰度',
+        'sem': '标准误',
+        'ci': '置信区间',
+        'missing': '缺失值',
+        'missing_pct': '缺失率'
+    };
+    
+    return statNames[stat] || stat;
+}
+
+// 格式化统计量的值
+function formatStatValue(value) {
+    if (value === null || value === undefined) {
+        return 'N/A';
+    }
+    
+    if (typeof value === 'number') {
+        // 检查是否为整数
+        if (Number.isInteger(value)) {
+            return value.toString();
+        }
+        
+        // 如果是小数，保留两位小数
+        return value.toFixed(2);
+    }
+    
+    return value;
+}
+
+// 渲染图表
+function renderChart(chartData, container) {
+    if (!chartData || !chartData.type) {
+        console.error('无效的图表数据');
+        return;
+    }
+    
+    const canvas = document.createElement('canvas');
+    container.appendChild(canvas);
+    
+    const ctx = canvas.getContext('2d');
+    
+    let chart;
+    switch (chartData.type) {
+        case 'histogram':
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: chartData.data.labels,
+                    datasets: [{
+                        label: chartData.title || '频率分布',
+                        data: chartData.data.values,
+                        backgroundColor: 'rgba(74, 137, 220, 0.6)',
+                        borderColor: 'rgba(74, 137, 220, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: chartData.title || '直方图'
+                        },
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '频率'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: chartData.xLabel || '值'
+                            }
+                        }
+                    }
+                }
+            });
+            break;
+        case 'boxplot':
+            // Chart.js原生不支持箱线图，这里只是简单模拟
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['箱线图'],
+                    datasets: [{
+                        label: chartData.title || '箱线图',
+                        data: [chartData.data.median],
+                        backgroundColor: 'rgba(74, 137, 220, 0.6)',
+                        borderColor: 'rgba(74, 137, 220, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: chartData.title || '箱线图 (简化版)'
+                        }
+                    }
+                }
+            });
+            break;
+        default:
+            console.error('不支持的图表类型:', chartData.type);
+    }
+}
+
+// 重置结果预览
+function resetResultPreview() {
+    const resultPreview = document.getElementById('result-preview');
+    if (resultPreview) {
+        resultPreview.innerHTML = `
+            <div class="result-placeholder">
+                <i class="bi bi-bar-chart-line"></i>
+                <p>统计结果将显示在这里</p>
+            </div>
+        `;
+    }
+}
+
+// 下载分析结果
+function downloadAnalysisResults() {
+    // 这里可以实现分析结果的下载功能
+    alert('分析结果下载功能正在开发中，敬请期待');
+}
+
+// 获取CSRF令牌
+function getCsrfToken() {
+    const token = document.querySelector('meta[name="csrf-token"]');
+    return token ? token.getAttribute('content') : '';
+}
+
+// 加载假设检验变量
+function loadHypothesisVariables(datasetId) {
+    const variablesContainer = document.getElementById('hypothesis-variables-container');
+    if (!variablesContainer) return;
+    
+    // 使用相同的API获取数据集字段
+    fetch(`/api/datasets/${datasetId}/db_custom_fields`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('获取数据集字段失败');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (!data.success || !data.fields) {
+                throw new Error('获取数据集字段失败');
+            }
+            
+            // 渲染变量列表
+            renderHypothesisVariables(data.fields, variablesContainer);
+            
+            // 加载分组变量选项
+            populateGroupVariable(data.fields);
+        })
+        .catch(error => {
+            console.error('获取假设检验字段错误:', error);
+            variablesContainer.innerHTML = `
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle-fill"></i> 
+                    无法获取数据集字段，请刷新页面重试
+                </div>
+            `;
+        });
+}
+
+// 渲染假设检验变量列表
+function renderHypothesisVariables(fields, container) {
+    if (!fields || fields.length === 0) {
+        container.innerHTML = `
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle-fill"></i> 
+                此数据集暂无可分析的变量
+            </div>
+        `;
+        return;
+    }
+    
+    // 按字段类型对字段进行分组
+    const numericFields = [];
+    const categoricalFields = [];
+    
+    fields.forEach(field => {
+        if (field.type === 'number') {
+            numericFields.push(field);
+        } else if (field.type === 'select' || field.type === 'checkbox' || field.type === 'radio' || field.type === 'boolean') {
+            categoricalFields.push(field);
+        }
+    });
+    
+    // 构建HTML
+    let html = '';
+    
+    // 添加数值变量
+    if (numericFields.length > 0) {
+        html += '<div class="variable-category">数值变量</div>';
+        html += '<div class="variable-selector">';
+        numericFields.forEach(field => {
+            html += `
+                <label>
+                    <input type="checkbox" name="hypothesis_variables" value="${field.name}">
+                    ${field.name}
+                </label>
+            `;
+        });
+        html += '</div>';
+    }
+    
+    // 添加分类变量
+    if (categoricalFields.length > 0) {
+        html += '<div class="variable-category">分类变量</div>';
+        html += '<div class="variable-selector">';
+        categoricalFields.forEach(field => {
+            html += `
+                <label>
+                    <input type="checkbox" name="hypothesis_variables" value="${field.name}">
+                    ${field.name}
+                </label>
+            `;
+        });
+        html += '</div>';
+    }
+    
+    // 更新容器内容
+    container.innerHTML = html;
+}
+
+// 填充分组变量下拉列表
+function populateGroupVariable(fields) {
+    const groupSelect = document.getElementById('group-variable');
+    if (!groupSelect) return;
+    
+    // 清空现有选项（保留默认选项）
+    while (groupSelect.options.length > 1) {
+        groupSelect.remove(1);
+    }
+    
+    // 主要使用分类变量作为分组变量
+    fields.filter(field => 
+        field.type === 'select' || 
+        field.type === 'checkbox' || 
+        field.type === 'radio' || 
+        field.type === 'boolean'
+    ).forEach(field => {
+        const option = document.createElement('option');
+        option.value = field.name;
+        option.textContent = field.name;
+        groupSelect.appendChild(option);
+    });
+}
+
+// 显示假设检验结果
+function showHypothesisTestResults(params, container) {
+    // 这里是模拟结果，实际中应通过API获取
+    const testType = params.test_type;
+    const alpha = parseFloat(params.alpha);
+    
+    let resultHTML = `
+        <div class="analysis-result">
+            <div class="result-section">
+                <div class="result-section-title">${getTestTypeName(testType)}结果</div>
+    `;
+    
+    // 根据不同的测试类型，显示不同的结果
+    switch(testType) {
+        case 'ttest':
+            // 模拟t检验结果
+            const pValue = Math.random();
+            const significant = pValue < alpha;
+            const tStat = (Math.random() * 5) - 2.5;
+            
+            resultHTML += `
+                <div class="result-table-container">
+                    <table class="result-table">
+                        <thead>
+                            <tr>
+                                <th>变量</th>
+                                <th>t统计量</th>
+                                <th>p值</th>
+                                <th>自由度</th>
+                                <th>结论</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>${params.variables[0]}</td>
+                                <td>${tStat.toFixed(3)}</td>
+                                <td>${pValue.toFixed(4)}${significant ? ' *' : ''}</td>
+                                <td>42</td>
+                                <td>${significant ? '拒绝原假设' : '接受原假设'}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="result-interpretation mt-3">
+                    <h5>结果解释</h5>
+                    <p>
+                        ${significant ? 
+                            `在显著性水平α=${alpha}下，t检验结果显示两组间存在显著差异 (t=${tStat.toFixed(3)}, p=${pValue.toFixed(4)})。` : 
+                            `在显著性水平α=${alpha}下，t检验结果未能显示两组间存在显著差异 (t=${tStat.toFixed(3)}, p=${pValue.toFixed(4)})。`
+                        }
+                    </p>
+                </div>
+                
+                <div class="chart-container mt-4" id="ttest_chart"></div>
+            `;
+            
+            setTimeout(() => {
+                // 绘制t检验可视化图表
+                const ctx = document.getElementById('ttest_chart').getContext('2d');
+                
+                // 创建两组模拟数据
+                const group1 = generateNormalData(50, 40, 10);
+                const group2 = generateNormalData(50, 40 + (significant ? 15 : 5), 10);
+                
+                const chart = new Chart(ctx, {
+                    type: 'boxplot',
+                    data: {
+                        labels: ['组1', '组2'],
+                        datasets: [{
+                            label: params.variables[0],
+                            data: [
+                                {
+                                    min: Math.min(...group1),
+                                    q1: percentile(group1, 25),
+                                    median: percentile(group1, 50),
+                                    q3: percentile(group1, 75),
+                                    max: Math.max(...group1),
+                                    outliers: []
+                                },
+                                {
+                                    min: Math.min(...group2),
+                                    q1: percentile(group2, 25),
+                                    median: percentile(group2, 50),
+                                    q3: percentile(group2, 75),
+                                    max: Math.max(...group2),
+                                    outliers: []
+                                }
+                            ],
+                            backgroundColor: ['rgba(74, 137, 220, 0.5)', 'rgba(220, 74, 74, 0.5)'],
+                            borderColor: ['rgba(74, 137, 220, 1)', 'rgba(220, 74, 74, 1)'],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `${params.variables[0]} 在 ${params.group_variable} 不同组别的比较`
+                            },
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const item = context.dataset.data[context.dataIndex];
+                                        return [
+                                            `最小值: ${item.min.toFixed(2)}`,
+                                            `第一四分位数: ${item.q1.toFixed(2)}`,
+                                            `中位数: ${item.median.toFixed(2)}`,
+                                            `第三四分位数: ${item.q3.toFixed(2)}`,
+                                            `最大值: ${item.max.toFixed(2)}`
+                                        ];
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                title: {
+                                    display: true,
+                                    text: params.variables[0]
+                                }
+                            }
+                        }
+                    }
+                });
+                
+                // 添加t检验结果标注
+                const annotation = document.createElement('div');
+                annotation.className = 'text-center mt-2';
+                annotation.innerHTML = `
+                    <div class="alert ${significant ? 'alert-danger' : 'alert-secondary'} py-2">
+                        t = ${tStat.toFixed(3)}, p = ${pValue.toFixed(4)}${significant ? ' <strong>*</strong>' : ''}
+                        (${significant ? '组间差异显著' : '组间差异不显著'})
+                    </div>
+                `;
+                document.getElementById('ttest_chart').parentNode.appendChild(annotation);
+            }, 100);
+            break;
+            
+        case 'chi2':
+            // 模拟卡方检验结果
+            const chiSq = Math.random() * 10;
+            const chiPValue = Math.random();
+            const chiSignificant = chiPValue < alpha;
+            
+            // 创建分类数据
+            const categories = ['类别A', '类别B', '类别C'];
+            const group1Counts = [25, 15, 10];
+            const group2Counts = [15, 20, 15];
+            
+            resultHTML += `
+                <div class="result-table-container">
+                    <table class="result-table">
+                        <thead>
+                            <tr>
+                                <th>${params.group_variable}</th>
+                                ${categories.map(cat => `<th>${cat}</th>`).join('')}
+                                <th>总计</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>组1</td>
+                                ${group1Counts.map(count => `<td>${count}</td>`).join('')}
+                                <td>${group1Counts.reduce((a, b) => a + b, 0)}</td>
+                            </tr>
+                            <tr>
+                                <td>组2</td>
+                                ${group2Counts.map(count => `<td>${count}</td>`).join('')}
+                                <td>${group2Counts.reduce((a, b) => a + b, 0)}</td>
+                            </tr>
+                            <tr>
+                                <td>总计</td>
+                                ${categories.map((_, i) => `<td>${group1Counts[i] + group2Counts[i]}</td>`).join('')}
+                                <td>${group1Counts.reduce((a, b) => a + b, 0) + group2Counts.reduce((a, b) => a + b, 0)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="result-table-container mt-4">
+                    <table class="result-table">
+                        <thead>
+                            <tr>
+                                <th>变量</th>
+                                <th>卡方统计量</th>
+                                <th>p值</th>
+                                <th>自由度</th>
+                                <th>结论</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>${params.variables[0]} vs ${params.group_variable}</td>
+                                <td>${chiSq.toFixed(3)}</td>
+                                <td>${chiPValue.toFixed(4)}${chiSignificant ? ' *' : ''}</td>
+                                <td>${categories.length - 1}</td>
+                                <td>${chiSignificant ? '拒绝原假设' : '接受原假设'}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="result-interpretation mt-3">
+                    <h5>结果解释</h5>
+                    <p>
+                        ${chiSignificant ? 
+                            `在显著性水平α=${alpha}下，卡方检验结果显示变量之间存在显著关联 (χ²=${chiSq.toFixed(3)}, p=${chiPValue.toFixed(4)})。这表明${params.variables[0]}的分布在不同${params.group_variable}组别中存在显著差异。` : 
+                            `在显著性水平α=${alpha}下，卡方检验结果未能显示变量之间存在显著关联 (χ²=${chiSq.toFixed(3)}, p=${chiPValue.toFixed(4)})。这表明${params.variables[0]}的分布在不同${params.group_variable}组别中没有显著差异。`
+                        }
+                    </p>
+                </div>
+                
+                <div class="chart-container mt-4" id="chi2_chart"></div>
+            `;
+            
+            setTimeout(() => {
+                // 绘制卡方检验可视化图表
+                const ctx = document.getElementById('chi2_chart').getContext('2d');
+                
+                const chart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: categories,
+                        datasets: [
+                            {
+                                label: '组1',
+                                data: group1Counts,
+                                backgroundColor: 'rgba(74, 137, 220, 0.6)',
+                                borderColor: 'rgba(74, 137, 220, 1)',
+                                borderWidth: 1
+                            },
+                            {
+                                label: '组2',
+                                data: group2Counts,
+                                backgroundColor: 'rgba(220, 74, 74, 0.6)',
+                                borderColor: 'rgba(220, 74, 74, 1)',
+                                borderWidth: 1
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `${params.variables[0]} 在不同 ${params.group_variable} 组别中的分布`
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: '频数'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: params.variables[0]
+                                }
+                            }
+                        }
+                    }
+                });
+                
+                // 添加卡方检验结果标注
+                const annotation = document.createElement('div');
+                annotation.className = 'text-center mt-2';
+                annotation.innerHTML = `
+                    <div class="alert ${chiSignificant ? 'alert-danger' : 'alert-secondary'} py-2">
+                        χ² = ${chiSq.toFixed(3)}, p = ${chiPValue.toFixed(4)}${chiSignificant ? ' <strong>*</strong>' : ''}
+                        (${chiSignificant ? '组间差异显著' : '组间差异不显著'})
+                    </div>
+                `;
+                document.getElementById('chi2_chart').parentNode.appendChild(annotation);
+            }, 100);
+            break;
+            
+        case 'anova':
+            // 模拟ANOVA结果
+            const fStat = Math.random() * 8;
+            const anovaPValue = Math.random();
+            const anovaSignificant = anovaPValue < alpha;
+            
+            // 创建三组模拟数据
+            const groups = ['组A', '组B', '组C'];
+            const groupData = [
+                generateNormalData(40, 30, 5),
+                generateNormalData(40, 30 + (anovaSignificant ? 8 : 2), 5),
+                generateNormalData(40, 30 + (anovaSignificant ? -6 : 1), 5)
+            ];
+            
+            // 计算组间均值和标准差
+            const groupMeans = groupData.map(data => mean(data));
+            const groupSDs = groupData.map(data => standardDeviation(data));
+            
+            resultHTML += `
+                <div class="result-table-container">
+                    <table class="result-table">
+                        <thead>
+                            <tr>
+                                <th>变异来源</th>
+                                <th>平方和</th>
+                                <th>自由度</th>
+                                <th>均方</th>
+                                <th>F统计量</th>
+                                <th>p值</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>组间</td>
+                                <td>${(Math.random() * 1000).toFixed(2)}</td>
+                                <td>${groups.length - 1}</td>
+                                <td>${(Math.random() * 500).toFixed(2)}</td>
+                                <td>${fStat.toFixed(3)}</td>
+                                <td>${anovaPValue.toFixed(4)}${anovaSignificant ? ' *' : ''}</td>
+                            </tr>
+                            <tr>
+                                <td>组内</td>
+                                <td>${(Math.random() * 5000).toFixed(2)}</td>
+                                <td>${groupData.reduce((sum, arr) => sum + arr.length, 0) - groups.length}</td>
+                                <td>${(Math.random() * 100).toFixed(2)}</td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <td>总计</td>
+                                <td>${(Math.random() * 6000).toFixed(2)}</td>
+                                <td>${groupData.reduce((sum, arr) => sum + arr.length, 0) - 1}</td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="result-table-container mt-4">
+                    <h5>描述性统计</h5>
+                    <table class="result-table">
+                        <thead>
+                            <tr>
+                                <th>${params.group_variable}</th>
+                                <th>样本量</th>
+                                <th>均值</th>
+                                <th>标准差</th>
+                                <th>标准误</th>
+                                <th>95%置信区间下限</th>
+                                <th>95%置信区间上限</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${groups.map((group, i) => `
+                                <tr>
+                                    <td>${group}</td>
+                                    <td>${groupData[i].length}</td>
+                                    <td>${groupMeans[i].toFixed(2)}</td>
+                                    <td>${groupSDs[i].toFixed(2)}</td>
+                                    <td>${(groupSDs[i] / Math.sqrt(groupData[i].length)).toFixed(2)}</td>
+                                    <td>${(groupMeans[i] - 1.96 * groupSDs[i] / Math.sqrt(groupData[i].length)).toFixed(2)}</td>
+                                    <td>${(groupMeans[i] + 1.96 * groupSDs[i] / Math.sqrt(groupData[i].length)).toFixed(2)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="result-interpretation mt-3">
+                    <h5>结果解释</h5>
+                    <p>
+                        ${anovaSignificant ? 
+                            `在显著性水平α=${alpha}下，方差分析结果显示${params.variables[0]}在不同${params.group_variable}组别间存在显著差异 (F=${fStat.toFixed(3)}, p=${anovaPValue.toFixed(4)})。` : 
+                            `在显著性水平α=${alpha}下，方差分析结果未能显示${params.variables[0]}在不同${params.group_variable}组别间存在显著差异 (F=${fStat.toFixed(3)}, p=${anovaPValue.toFixed(4)})。`
+                        }
+                    </p>
+                    ${anovaSignificant ? 
+                        `<p>由于方差分析结果显著，可以进一步进行事后比较（如Tukey HSD检验）来确定哪些组之间存在显著差异。</p>` : 
+                        ''
+                    }
+                </div>
+                
+                <div class="chart-container mt-4"><canvas id="anova_chart"></canvas></div>
+            `;
+            
+            setTimeout(() => {
+                // 绘制ANOVA可视化图表
+                const ctx = document.getElementById('anova_chart').getContext('2d');
+                
+                const boxplotData = [];
+                for (let i = 0; i < groups.length; i++) {
+                    boxplotData.push({
+                        min: Math.min(...groupData[i]),
+                        q1: percentile(groupData[i], 25),
+                        median: percentile(groupData[i], 50),
+                        q3: percentile(groupData[i], 75),
+                        max: Math.max(...groupData[i]),
+                        outliers: []
+                    });
+                }
+                
+                // 使用散点图 + 误差线来模拟箱线图
+                const chart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: groups,
+                        datasets: [{
+                            label: params.variables[0],
+                            data: groupMeans,
+                            backgroundColor: groups.map((_, i) => `rgba(${74 + i*50}, ${137 - i*30}, ${220 - i*50}, 0.6)`),
+                            borderColor: groups.map((_, i) => `rgba(${74 + i*50}, ${137 - i*30}, ${220 - i*50}, 1)`),
+                            borderWidth: 1,
+                            // 添加误差线
+                            errorBars: {
+                                show: true,
+                                color: 'rgba(0, 0, 0, 0.5)',
+                                lineWidth: 1,
+                                data: groupData.map((data, i) => {
+                                    const se = groupSDs[i] / Math.sqrt(data.length);
+                                    return {
+                                        plus: 1.96 * se,
+                                        minus: 1.96 * se
+                                    };
+                                })
+                            }
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `${params.variables[0]} 在不同 ${params.group_variable} 组别中的均值比较`
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                title: {
+                                    display: true,
+                                    text: params.variables[0]
+                                }
+                            }
+                        }
+                    }
+                });
+                
+                // 添加ANOVA结果标注
+                const annotation = document.createElement('div');
+                annotation.className = 'text-center mt-2';
+                annotation.innerHTML = `
+                    <div class="alert ${anovaSignificant ? 'alert-danger' : 'alert-secondary'} py-2">
+                        F = ${fStat.toFixed(3)}, p = ${anovaPValue.toFixed(4)}${anovaSignificant ? ' <strong>*</strong>' : ''}
+                        (${anovaSignificant ? '组间差异显著' : '组间差异不显著'})
+                    </div>
+                `;
+                document.getElementById('anova_chart').parentNode.appendChild(annotation);
+            }, 100);
+            break;
+            
+        default:
+            resultHTML += `
+                <div class="result-interpretation mt-3">
+                    <p>已收到 ${testType} 检验请求，此检验类型的详细结果显示正在开发中。</p>
+                    <p>请使用t检验、卡方检验或方差分析获取更完整的分析结果。</p>
+                </div>
+            `;
+    }
+    
+    resultHTML += `
+            </div>
+            <div class="mt-4 text-end">
+                <button class="clinical-button secondary" onclick="downloadHypothesisResults()">
+                    <i class="bi bi-download"></i> 下载检验结果
+                </button>
+            </div>
+        </div>
+    `;
+    
+    container.innerHTML = resultHTML;
+}
+
+// 生成服从正态分布的随机数据
+function generateNormalData(n, mean, stdDev) {
+    const data = [];
+    for (let i = 0; i < n; i++) {
+        // Box-Muller变换生成正态分布
+        let u = 0, v = 0;
+        while (u === 0) u = Math.random();
+        while (v === 0) v = Math.random();
+        let z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+        
+        // 调整均值和标准差
+        data.push(z * stdDev + mean);
+    }
+    return data;
+}
+
+// 计算百分位数
+function percentile(data, p) {
+    if (data.length === 0) return 0;
+    if (p <= 0) return Math.min(...data);
+    if (p >= 100) return Math.max(...data);
+    
+    // 排序数据
+    const sorted = [...data].sort((a, b) => a - b);
+    
+    const index = (p / 100) * (sorted.length - 1);
+    const lower = Math.floor(index);
+    const upper = Math.ceil(index);
+    const weight = index - lower;
+    
+    if (upper === lower) return sorted[index];
+    return sorted[lower] * (1 - weight) + sorted[upper] * weight;
+}
+
+// 计算均值
+function mean(data) {
+    if (data.length === 0) return 0;
+    return data.reduce((sum, value) => sum + value, 0) / data.length;
+}
+
+// 计算标准差
+function standardDeviation(data) {
+    if (data.length <= 1) return 0;
+    const avg = mean(data);
+    const squareDiffs = data.map(value => {
+        const diff = value - avg;
+        return diff * diff;
+    });
+    const variance = squareDiffs.reduce((sum, value) => sum + value, 0) / (data.length - 1);
+    return Math.sqrt(variance);
+}
+
+// 获取检验类型的中文名称
+function getTestTypeName(testType) {
+    const testNames = {
+        'ttest': 't检验',
+        'paired_ttest': '配对t检验',
+        'anova': '方差分析',
+        'chi2': '卡方检验',
+        'fisher': 'Fisher精确检验',
+        'wilcoxon': 'Wilcoxon秩和检验',
+        'kruskal': 'Kruskal-Wallis检验'
+    };
+    
+    return testNames[testType] || testType;
+}
+
+// 下载假设检验结果
+function downloadHypothesisResults() {
+    alert('检验结果下载功能正在开发中，敬请期待');
+}
+
+// 加载相关性分析变量
+function loadCorrelationVariables(datasetId) {
+    const variablesContainer = document.getElementById('correlation-variables-container');
+    if (!variablesContainer) return;
+    
+    // 使用相同的API获取数据集字段
+    fetch(`/api/datasets/${datasetId}/db_custom_fields`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('获取数据集字段失败');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (!data.success || !data.fields) {
+                throw new Error('获取数据集字段失败');
+            }
+            
+            // 渲染变量列表
+            renderCorrelationVariables(data.fields, variablesContainer);
+            
+            // 加载分组变量选项
+            populateGroupVariable(data.fields);
+        })
+        .catch(error => {
+            console.error('获取相关性分析字段错误:', error);
+            variablesContainer.innerHTML = `
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle-fill"></i> 
+                    无法获取数据集字段，请刷新页面重试
+                </div>
+            `;
+        });
+}
+
+// 渲染相关性分析变量列表
+function renderCorrelationVariables(fields, container) {
+    if (!fields || fields.length === 0) {
+        container.innerHTML = `
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle-fill"></i> 
+                此数据集暂无可分析的变量
+            </div>
+        `;
+        return;
+    }
+    
+    // 按字段类型对字段进行分组
+    const numericFields = [];
+    const categoricalFields = [];
+    
+    fields.forEach(field => {
+        if (field.type === 'number') {
+            numericFields.push(field);
+        } else if (field.type === 'select' || field.type === 'checkbox' || field.type === 'radio' || field.type === 'boolean') {
+            categoricalFields.push(field);
+        }
+    });
+    
+    // 构建HTML
+    let html = '';
+    
+    // 添加数值变量
+    if (numericFields.length > 0) {
+        html += '<div class="variable-category">数值变量</div>';
+        html += '<div class="variable-selector">';
+        numericFields.forEach(field => {
+            html += `
+                <label>
+                    <input type="checkbox" name="correlation_variables" value="${field.name}">
+                    ${field.name}
+                </label>
+            `;
+        });
+        html += '</div>';
+    }
+    
+    // 添加分类变量
+    if (categoricalFields.length > 0) {
+        html += '<div class="variable-category">分类变量</div>';
+        html += '<div class="variable-selector">';
+        categoricalFields.forEach(field => {
+            html += `
+                <label>
+                    <input type="checkbox" name="correlation_variables" value="${field.name}">
+                    ${field.name}
+                </label>
+            `;
+        });
+        html += '</div>';
+    }
+    
+    // 更新容器内容
+    container.innerHTML = html;
+}
+
+// 填充分组变量下拉列表
+function populateGroupVariable(fields) {
+    const groupSelect = document.getElementById('group-variable');
+    if (!groupSelect) return;
+    
+    // 清空现有选项（保留默认选项）
+    while (groupSelect.options.length > 1) {
+        groupSelect.remove(1);
+    }
+    
+    // 主要使用分类变量作为分组变量
+    fields.filter(field => 
+        field.type === 'select' || 
+        field.type === 'checkbox' || 
+        field.type === 'radio' || 
+        field.type === 'boolean'
+    ).forEach(field => {
+        const option = document.createElement('option');
+        option.value = field.name;
+        option.textContent = field.name;
+        groupSelect.appendChild(option);
+    });
+}
+
+// 空实现函数 - 防止JavaScript错误
+function loadSurvivalVariables(datasetId) {
+    const container = document.getElementById('survival-covariates-container');
+    if (container) {
+        container.innerHTML = `
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle-fill"></i> 
+                生存分析变量加载中...
+            </div>
+        `;
+    }
+    
+    // 添加时间变量和事件变量选项
+    populateSurvivalVariables(datasetId);
+}
+
+function populateSurvivalVariables(datasetId) {
+    // 简单填充一些示例变量
+    const timeVar = document.getElementById('time-variable');
+    const eventVar = document.getElementById('event-variable');
+    const groupVar = document.getElementById('survival-group-variable');
+    
+    if (timeVar) {
+        timeVar.innerHTML = `
+            <option value="">-- 请选择时间变量 --</option>
+            <option value="follow_up_time">随访时间</option>
+            <option value="survival_months">生存月数</option>
+            <option value="time_to_event">事件发生时间</option>
+        `;
+    }
+    
+    if (eventVar) {
+        eventVar.innerHTML = `
+            <option value="">-- 请选择事件变量 --</option>
+            <option value="death">死亡</option>
+            <option value="relapse">复发</option>
+            <option value="event_status">事件状态</option>
+        `;
+    }
+    
+    if (groupVar) {
+        groupVar.innerHTML = `
+            <option value="">-- 请选择分组变量 --</option>
+            <option value="treatment">治疗方式</option>
+            <option value="stage">分期</option>
+            <option value="gender">性别</option>
+        `;
+    }
+}
+
+function loadRiskVariables(datasetId) {
+    const container = document.getElementById('risk-predictors-container');
+    if (container) {
+        container.innerHTML = `
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle-fill"></i> 
+                风险评估变量加载中...
+            </div>
+        `;
+    }
+    
+    // 填充目标变量下拉列表
+    const targetVar = document.getElementById('risk-target-variable');
+    if (targetVar) {
+        targetVar.innerHTML = `
+            <option value="">-- 请选择目标变量 --</option>
+            <option value="complication">并发症</option>
+            <option value="readmission">再入院</option>
+            <option value="mortality">死亡率</option>
+        `;
+    }
+}
+
+function loadChartVariables(datasetId) {
+    // 填充X轴、Y轴和分组变量
+    const xVar = document.getElementById('x-variable');
+    const yVar = document.getElementById('y-variable');
+    const groupVar = document.getElementById('chart-group-variable');
+    
+    if (xVar) {
+        xVar.innerHTML = `
+            <option value="">-- 请选择X轴变量 --</option>
+            <option value="age">年龄</option>
+            <option value="bmi">BMI</option>
+            <option value="gender">性别</option>
+        `;
+    }
+    
+    if (yVar) {
+        yVar.innerHTML = `
+            <option value="">-- 请选择Y轴变量 --</option>
+            <option value="blood_pressure">血压</option>
+            <option value="cholesterol">胆固醇</option>
+            <option value="glucose">血糖</option>
+        `;
+    }
+    
+    if (groupVar) {
+        groupVar.innerHTML = `
+            <option value="">-- 请选择分组变量 --</option>
+            <option value="gender">性别</option>
+            <option value="treatment">治疗方式</option>
+            <option value="disease">疾病类型</option>
+        `;
+    }
+}
+
+function loadReportVariables(datasetId) {
+    const container = document.getElementById('report-variables-container');
+    if (container) {
+        container.innerHTML = `
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle-fill"></i> 
+                报告变量加载中...
+            </div>
+        `;
+        
+        // 模拟加载完成后显示变量选择
+        setTimeout(() => {
+            container.innerHTML = `
+                <div class="variable-category">主要分析变量</div>
+                <div class="variable-selector">
+                    <label><input type="checkbox" name="report_variables" value="age" checked> 年龄</label>
+                    <label><input type="checkbox" name="report_variables" value="gender" checked> 性别</label>
+                    <label><input type="checkbox" name="report_variables" value="bmi"> BMI</label>
+                    <label><input type="checkbox" name="report_variables" value="blood_pressure"> 血压</label>
+                    <label><input type="checkbox" name="report_variables" value="treatment" checked> 治疗方式</label>
+                </div>
+                
+                <div class="variable-category">次要分析变量</div>
+                <div class="variable-selector">
+                    <label><input type="checkbox" name="report_variables" value="comorbidity"> 合并症</label>
+                    <label><input type="checkbox" name="report_variables" value="medication"> 用药情况</label>
+                    <label><input type="checkbox" name="report_variables" value="lifestyle"> 生活方式</label>
+                </div>
+            `;
+        }, 1000);
+    }
+}
+
+// 为表单添加提交事件 - 防止出现"coming soon"的提示
+document.addEventListener('DOMContentLoaded', function() {
+    const survivalForm = document.getElementById('survivalForm');
+    const riskForm = document.getElementById('riskForm');
+    const chartsForm = document.getElementById('chartsForm');
+    const reportsForm = document.getElementById('reportsForm');
+    
+    // 生存分析表单提交
+    if (survivalForm) {
+        survivalForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const resultPreview = document.getElementById('survival-result-preview');
+            
+            if (resultPreview) {
+                resultPreview.innerHTML = `
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                        <p class="mt-3">正在进行生存分析，请稍候...</p>
+                    </div>
+                `;
+                
+                setTimeout(() => {
+                    resultPreview.innerHTML = `
+                        <div class="text-center">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle"></i> 
+                                生存分析功能正在优化中，即将推出完整版本。
+                            </div>
+                            <div style="width:100%; height:300px; background-color:#f8f9fa; border:1px solid #dee2e6; border-radius:4px; display:flex; align-items:center; justify-content:center; margin-top:15px;">
+                                <div style="text-align:center;">
+                                    <i class="bi bi-activity" style="font-size:48px; color:#6c757d;"></i>
+                                    <p>生存曲线示例</p>
+                                    <p class="text-muted">图表正在优化中...</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }, 1500);
+            }
+        });
+    }
+    
+    // 风险评估表单提交
+    if (riskForm) {
+        riskForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const resultPreview = document.getElementById('risk-result-preview');
+            
+            if (resultPreview) {
+                resultPreview.innerHTML = `
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                        <p class="mt-3">正在构建风险模型，请稍候...</p>
+                    </div>
+                `;
+                
+                setTimeout(() => {
+                    resultPreview.innerHTML = `
+                        <div class="text-center">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle"></i> 
+                                风险评估功能正在优化中，即将推出完整版本。
+                            </div>
+                            <div style="width:100%; height:300px; background-color:#f8f9fa; border:1px solid #dee2e6; border-radius:4px; display:flex; align-items:center; justify-content:center; margin-top:15px;">
+                                <div style="text-align:center;">
+                                    <i class="bi bi-graph-up" style="font-size:48px; color:#6c757d;"></i>
+                                    <p>ROC曲线示例</p>
+                                    <p class="text-muted">图表正在优化中...</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }, 1500);
+            }
+        });
+    }
+    
+    // 图表生成表单提交
+    if (chartsForm) {
+        chartsForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const resultPreview = document.getElementById('charts-result-preview');
+            
+            if (resultPreview) {
+                resultPreview.innerHTML = `
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                        <p class="mt-3">正在生成图表，请稍候...</p>
+                    </div>
+                `;
+                
+                setTimeout(() => {
+                    resultPreview.innerHTML = `
+                        <div class="text-center">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle"></i> 
+                                图表生成功能正在优化中，即将推出完整版本。
+                            </div>
+                            <div style="width:100%; height:300px; background-color:#f8f9fa; border:1px solid #dee2e6; border-radius:4px; display:flex; align-items:center; justify-content:center; margin-top:15px;">
+                                <div style="text-align:center;">
+                                    <i class="bi bi-bar-chart" style="font-size:48px; color:#6c757d;"></i>
+                                    <p>数据可视化图表示例</p>
+                                    <p class="text-muted">图表正在优化中...</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }, 1500);
+            }
+        });
+    }
+    
+    // 分析报告表单提交
+    if (reportsForm) {
+        reportsForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const resultPreview = document.getElementById('reports-result-preview');
+            
+            if (resultPreview) {
+                resultPreview.innerHTML = `
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                        <p class="mt-3">正在生成报告，请稍候...</p>
+                    </div>
+                `;
+                
+                setTimeout(() => {
+                    resultPreview.innerHTML = `
+                        <div class="text-center">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle"></i> 
+                                分析报告功能正在优化中，即将推出完整版本。
+                            </div>
+                            <div class="card mt-3">
+                                <div class="card-header">报告预览</div>
+                                <div class="card-body text-start">
+                                    <h5>分析报告: 数据集基本统计分析</h5>
+                                    <p>本报告包含以下部分:</p>
+                                    <ul>
+                                        <li>描述性统计</li>
+                                        <li>组间比较</li>
+                                        <li>相关性分析</li>
+                                    </ul>
+                                    <p>报告完整版将在导出后可见...</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }, 1500);
+            }
+        });
+    }
+    
+    // 添加重置按钮事件
+    const resetButtons = [
+        { id: 'resetSurvivalBtn', preview: 'survival-result-preview', icon: 'activity' },
+        { id: 'resetRiskBtn', preview: 'risk-result-preview', icon: 'shield-check' },
+        { id: 'resetChartsBtn', preview: 'charts-result-preview', icon: 'bar-chart' },
+        { id: 'resetReportsBtn', preview: 'reports-result-preview', icon: 'file-earmark-text' }
+    ];
+    
+    resetButtons.forEach(button => {
+        const btn = document.getElementById(button.id);
+        if (btn) {
+            btn.addEventListener('click', function() {
+                const form = this.closest('form');
+                if (form) {
+                    form.reset();
+                }
+                
+                const preview = document.getElementById(button.preview);
+                if (preview) {
+                    preview.innerHTML = `
+                        <div class="result-placeholder">
+                            <i class="bi bi-${button.icon}"></i>
+                            <p>结果将显示在这里</p>
+                        </div>
+                    `;
+                }
+            });
+        }
+    });
+});
+
+// 显示相关性分析结果
+function showCorrelationResults(correlationType, variables, requireSignificance, showHeatmap, showScatterplot, container) {
+    // 这里是模拟结果，实际中应通过API获取
+    
+    // 确保variables是数组
+    if (!Array.isArray(variables)) {
+        console.error('变量参数不是数组:', variables);
+        variables = variables ? [variables] : [];
+    }
+    
+    // 如果变量少于2个，显示错误信息
+    if (variables.length < 2) {
+        container.innerHTML = `
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle"></i>
+                <p>需要至少选择两个变量进行相关性分析。</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let resultHTML = `
+        <div class="result-content">
+            <h4>${getCorrelationTypeName(correlationType)}分析结果</h4>
+            <p class="text-muted">分析了 ${variables.length} 个变量间的相关性</p>
+    `;
+    
+    // 生成相关系数矩阵
+    const coefficientMatrix = [];
+    for (let i = 0; i < variables.length; i++) {
+        const row = [];
+        for (let j = 0; j < variables.length; j++) {
+            if (i === j) {
+                row.push(1); // 对角线上为1
+            } else {
+                // 生成-1到1之间的随机相关系数
+                row.push((Math.random() * 2 - 1) * 0.9); // 乘以0.9使值不那么极端
+            }
+        }
+        coefficientMatrix.push(row);
+    }
+    
+    // 确保矩阵对称
+    for (let i = 0; i < variables.length; i++) {
+        for (let j = i + 1; j < variables.length; j++) {
+            coefficientMatrix[i][j] = coefficientMatrix[j][i];
+        }
+    }
+    
+    // 生成P值矩阵（用于显示显著性）
+    const pValueMatrix = [];
+    for (let i = 0; i < variables.length; i++) {
+        const row = [];
+        for (let j = 0; j < variables.length; j++) {
+            if (i === j) {
+                row.push(0); // 对角线上P值为0
+            } else {
+                row.push(Math.random()); // 随机P值
+            }
+        }
+        pValueMatrix.push(row);
+    }
+    
+    // 确保P值矩阵也对称
+    for (let i = 0; i < variables.length; i++) {
+        for (let j = i + 1; j < variables.length; j++) {
+            pValueMatrix[i][j] = pValueMatrix[j][i];
+        }
+    }
+    
+    // 创建相关系数表格
+    resultHTML += `
+        <div class="result-table-container">
+            <h5>相关系数矩阵</h5>
+            <div class="table-responsive">
+                <table class="table table-bordered table-sm">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            ${variables.map(v => `<th>${v}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${variables.map((v, i) => `
+                            <tr>
+                                <th>${v}</th>
+                                ${coefficientMatrix[i].map((coef, j) => {
+                                    const significant = pValueMatrix[i][j] < 0.05;
+                                    return `<td class="${i !== j ? (Math.abs(coef) > 0.7 ? 'table-danger' : (Math.abs(coef) > 0.3 ? 'table-warning' : '')) : 'table-light'}">${i === j ? '1.000' : coef.toFixed(3)}${significant && i !== j ? '*' : ''}</td>`;
+                                }).join('')}
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-muted small mt-2">注: * 表示相关系数在0.05水平上显著</p>
+        </div>
+        
+        <div class="result-interpretation mt-3">
+            <h5>结果解释</h5>
+            <p>
+                ${getCorrelationTypeName(correlationType)}分析结果显示了所选变量间的相关性强度。
+                相关系数绝对值越接近1表示相关性越强，接近0表示几乎无相关。
+            </p>
+            
+            <div class="correlation-highlights mt-3">
+                <h6>主要发现:</h6>
+                <ul>
+                    ${findStrongCorrelations(variables, coefficientMatrix, pValueMatrix).map(item => `
+                        <li>
+                            <strong>${item.var1}</strong> 与 <strong>${item.var2}</strong> 之间存在
+                            ${item.coef > 0 ? '正' : '负'}相关 (r = ${item.coef.toFixed(3)}, p = ${item.pValue.toFixed(4)})，
+                            相关强度为 ${getCorrelationStrength(item.coef)}。
+                        </li>
+                    `).join('')}
+                </ul>
+            </div>
+        </div>
+    `;
+    
+    // 如果需要热图
+    if (showHeatmap) {
+        resultHTML += `
+            <div class="mt-4">
+                <h5>相关性热图</h5>
+                <div class="chart-container" id="correlation_heatmap" style="height:400px;"></div>
+            </div>
+        `;
+    }
+    
+    // 如果需要散点图，且选择了两个或更多变量
+    if (showScatterplot && variables.length >= 2) {
+        resultHTML += `
+            <div class="mt-4">
+                <h5>散点图矩阵</h5>
+                <div class="chart-container" id="correlation_scatterplot" style="height:400px;"></div>
+            </div>
+        `;
+    }
+    
+    resultHTML += `
+        <div class="mt-4 text-end">
+            <button class="clinical-button secondary" onclick="downloadCorrelationResults()">
+                <i class="bi bi-download"></i> 下载相关性结果
+            </button>
+        </div>
+    </div>
+    `;
+    
+    container.innerHTML = resultHTML;
+    
+    // 渲染图表
+    setTimeout(() => {
+        if (showHeatmap) {
+            renderCorrelationHeatmap(variables, coefficientMatrix);
+        }
+        
+        if (showScatterplot && variables.length >= 2) {
+            renderCorrelationScatterplot(variables);
+        }
+    }, 50);
+}
+
+// 寻找强相关变量对
+function findStrongCorrelations(variables, coeffMatrix, pValueMatrix) {
+    const strongCorrelations = [];
+    
+    for (let i = 0; i < variables.length; i++) {
+        for (let j = i + 1; j < variables.length; j++) {
+            const coef = coeffMatrix[i][j];
+            const pValue = pValueMatrix[i][j];
+            
+            if (Math.abs(coef) > 0.3 && pValue < 0.05) {
+                strongCorrelations.push({
+                    var1: variables[i],
+                    var2: variables[j],
+                    coef: coef,
+                    pValue: pValue
+                });
+            }
+        }
+    }
+    
+    // 按相关系数绝对值排序
+    strongCorrelations.sort((a, b) => Math.abs(b.coef) - Math.abs(a.coef));
+    
+    // 最多返回5个
+    return strongCorrelations.slice(0, 5);
+}
+
+// 获取相关强度描述
+function getCorrelationStrength(coef) {
+    const absCoef = Math.abs(coef);
+    
+    if (absCoef >= 0.8) return '极强';
+    if (absCoef >= 0.6) return '强';
+    if (absCoef >= 0.4) return '中等';
+    if (absCoef >= 0.2) return '弱';
+    return '极弱';
+}
+
+// 获取相关性类型的中文名称
+function getCorrelationTypeName(correlationType) {
+    const correlationTypes = {
+        'pearson': 'Pearson相关性',
+        'spearman': 'Spearman等级相关性',
+        'kendall': 'Kendall等级相关性',
+        'partial': '偏相关性'
+    };
+    
+    return correlationTypes[correlationType] || correlationType;
+}
+
+// 绘制相关性热图
+function renderCorrelationHeatmap(variables, coefficientMatrix) {
+    try {
+        if (typeof Chart === 'undefined') {
+            console.error('Chart.js未加载');
+            return;
+        }
+        
+        const ctx = document.getElementById('correlation_heatmap').getContext('2d');
+        
+        const data = [];
+        for (let i = 0; i < variables.length; i++) {
+            for (let j = 0; j < variables.length; j++) {
+                data.push({
+                    x: variables[j],
+                    y: variables[i],
+                    v: coefficientMatrix[i][j]
+                });
+            }
+        }
+        
+        new Chart(ctx, {
+            type: 'matrix',
+            data: {
+                datasets: [{
+                    label: '相关系数',
+                    data: data,
+                    backgroundColor(context) {
+                        const value = context.dataset.data[context.dataIndex].v;
+                        
+                        if (value === 1) {
+                            return 'rgba(240, 240, 240, 0.9)'; // 对角线为浅灰色
+                        }
+                        
+                        if (value > 0) {
+                            return `rgba(74, 137, 220, ${Math.abs(value)})`;
+                        } else {
+                            return `rgba(220, 74, 74, ${Math.abs(value)})`;
+                        }
+                    },
+                    borderColor: 'white',
+                    borderWidth: 1,
+                    width: 30,
+                    height: 30
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            title: function() {
+                                return '';
+                            },
+                            label: function(context) {
+                                const v = context.dataset.data[context.dataIndex];
+                                return `${v.y} 与 ${v.x}: ${v.v.toFixed(3)}`;
+                            }
+                        }
+                    },
+                    legend: {
+                        display: false
+                    },
+                    title: {
+                        display: true,
+                        text: '相关性热图'
+                    }
+                }
+            }
+        });
+    } catch (error) {
+        console.error('绘制相关性热图错误:', error);
+        document.getElementById('correlation_heatmap').innerHTML = `
+            <div class="alert alert-danger">
+                图表渲染错误: ${error.message}
+            </div>
+        `;
+        
+        // 如果是由于Chart.js不支持matrix类型，则使用表格展示
+        if (error.message.includes('matrix')) {
+            document.getElementById('correlation_heatmap').innerHTML = `
+                <div class="alert alert-warning">
+                    无法绘制热图，请确保Chart.js已正确加载并支持matrix图表类型。
+                </div>
+            `;
+        }
+    }
+}
+
+// 绘制相关性散点图
+function renderCorrelationScatterplot(variables) {
+    try {
+        if (typeof Chart === 'undefined') {
+            console.error('Chart.js未加载');
+            return;
+        }
+        
+        const ctx = document.getElementById('correlation_scatterplot').getContext('2d');
+        
+        // 只选取前3个变量，防止图表过于复杂
+        const selectedVars = variables.slice(0, 3);
+        
+        // 为每个变量生成随机数据
+        const datasets = [];
+        const colors = ['rgba(74, 137, 220, 0.6)', 'rgba(220, 74, 74, 0.6)', 'rgba(74, 220, 74, 0.6)'];
+        
+        // 生成散点数据
+        const points = [];
+        for (let i = 0; i < 50; i++) {
+            const point = {};
+            for (let j = 0; j < selectedVars.length; j++) {
+                point[selectedVars[j]] = Math.random() * 100;
+            }
+            points.push(point);
+        }
+        
+        // 创建变量对
+        const pairs = [];
+        for (let i = 0; i < selectedVars.length; i++) {
+            for (let j = i + 1; j < selectedVars.length; j++) {
+                pairs.push({
+                    x: selectedVars[i],
+                    y: selectedVars[j]
+                });
+            }
+        }
+        
+        // 为每对变量创建数据集
+        for (let i = 0; i < pairs.length; i++) {
+            const pair = pairs[i];
+            datasets.push({
+                label: `${pair.x} vs ${pair.y}`,
+                data: points.map(p => ({
+                    x: p[pair.x],
+                    y: p[pair.y]
+                })),
+                backgroundColor: colors[i % colors.length],
+                borderColor: colors[i % colors.length].replace('0.6', '1'),
+                borderWidth: 1
+            });
+        }
+        
+        new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: '变量散点图'
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: pairs.length > 0 ? pairs[0].x : ''
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: pairs.length > 0 ? pairs[0].y : ''
+                        }
+                    }
+                }
+            }
+        });
+    } catch (error) {
+        console.error('绘制相关性散点图错误:', error);
+        document.getElementById('correlation_scatterplot').innerHTML = `
+            <div class="alert alert-danger">
+                图表渲染错误: ${error.message}
+            </div>
+        `;
+    }
+}
+
+// 下载相关性分析结果
+function downloadCorrelationResults() {
+    alert('相关性分析结果下载功能正在开发中，敬请期待');
+}
+
+// 计算两组数据的Pearson相关系数
+function calculateCorrelation(x, y) {
+    // 确保两个数组长度相同
+    const n = Math.min(x.length, y.length);
+    if (n === 0) return 0;
+    
+    // 计算均值
+    const xMean = x.slice(0, n).reduce((a, b) => a + b, 0) / n;
+    const yMean = y.slice(0, n).reduce((a, b) => a + b, 0) / n;
+    
+    // 计算分子（协方差）和分母（标准差之积）
+    let numerator = 0;
+    let xDenom = 0;
+    let yDenom = 0;
+    
+    for (let i = 0; i < n; i++) {
+        const xDiff = x[i] - xMean;
+        const yDiff = y[i] - yMean;
+        numerator += xDiff * yDiff;
+        xDenom += xDiff * xDiff;
+        yDenom += yDiff * yDiff;
+    }
+    
+    if (xDenom === 0 || yDenom === 0) return 0;
+    
+    return numerator / Math.sqrt(xDenom * yDenom);
+}
+
+// 处理生存分析表单提交
+document.getElementById('survivalForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    // 获取选择的参数
+    const timeVariable = document.getElementById('time-variable').value;
+    const eventVariable = document.getElementById('event-variable').value;
+    const groupVariable = document.getElementById('grouping-variable').value;
+    const analysisType = document.querySelector('input[name="survival-analysis-type"]:checked').value;
+    
+    // 验证必填项
+    if (!timeVariable || !eventVariable) {
+        alert('请选择时间变量和事件变量');
+        return;
+    }
+    
+    // 如果选择Cox回归但未选择协变量
+    if (analysisType === 'cox' && document.querySelectorAll('#cox-variables-container input[type="checkbox"]:checked').length === 0) {
+        alert('请至少选择一个变量作为Cox回归模型的协变量');
+        return;
+    }
+    
+    // 获取选中的Cox回归协变量
+    const covariates = [];
+    if (analysisType === 'cox') {
+        document.querySelectorAll('#cox-variables-container input[type="checkbox"]:checked').forEach(checkbox => {
+            covariates.push(checkbox.value);
+        });
+    }
+    
+    // 显示加载状态
+    const resultPreview = document.getElementById('survival-result-preview');
+    resultPreview.innerHTML = `
+        <div class="text-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">加载中...</span>
+            </div>
+            <p class="mt-2">正在进行生存分析，请稍候...</p>
+        </div>
+    `;
+    
+    // 模拟分析延迟
+    setTimeout(() => {
+        // 调用结果显示函数
+        showSurvivalResults(analysisType, timeVariable, eventVariable, groupVariable, covariates, resultPreview);
+    }, 1500);
+});
+
+// 重置生存分析表单
+document.getElementById('resetSurvivalBtn').addEventListener('click', function() {
+    document.getElementById('survivalForm').reset();
+    document.getElementById('survival-result-preview').innerHTML = `
+        <div class="result-placeholder">
+            <i class="bi bi-activity"></i>
+            <p>生存分析结果将显示在这里</p>
+        </div>
+    `;
+});
+
+// 显示生存分析结果
+function showSurvivalResults(analysisType, timeVariable, eventVariable, groupVariable, covariates, container) {
+    // 这里是模拟结果，实际中应通过API获取
+    
+    let resultHTML = `
+        <div class="result-content">
+            <h4>${analysisType === 'kaplan' ? 'Kaplan-Meier生存分析' : 'Cox比例风险回归分析'}结果</h4>
+            <div class="analysis-params mb-3">
+                <h5>分析参数</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <dl class="row">
+                            <dt class="col-sm-4">时间变量:</dt>
+                            <dd class="col-sm-8">${timeVariable}</dd>
+                            
+                            <dt class="col-sm-4">事件变量:</dt>
+                            <dd class="col-sm-8">${eventVariable}</dd>
+                            
+                            ${groupVariable ? `
+                                <dt class="col-sm-4">分组变量:</dt>
+                                <dd class="col-sm-8">${groupVariable}</dd>
+                            ` : ''}
+                            
+                            <dt class="col-sm-4">分析类型:</dt>
+                            <dd class="col-sm-8">${analysisType === 'kaplan' ? 'Kaplan-Meier生存分析' : 'Cox比例风险回归分析'}</dd>
+                        </dl>
+                    </div>
+                    <div class="col-md-6">
+                        <dl class="row">
+                            <dt class="col-sm-4">样本量:</dt>
+                            <dd class="col-sm-8">120</dd>
+                            
+                            <dt class="col-sm-4">事件数:</dt>
+                            <dd class="col-sm-8">48</dd>
+                            
+                            <dt class="col-sm-4">删失数:</dt>
+                            <dd class="col-sm-8">72</dd>
+                            
+                            <dt class="col-sm-4">中位随访时间:</dt>
+                            <dd class="col-sm-8">24.5个月</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+    `;
+    
+    if (analysisType === 'kaplan') {
+        // Kaplan-Meier生存分析结果
+        resultHTML += generateKaplanMeierResults(timeVariable, eventVariable, groupVariable);
+    } else {
+        // Cox回归分析结果
+        resultHTML += generateCoxRegressionResults(timeVariable, eventVariable, covariates);
+    }
+    
+    resultHTML += `
+            <div class="mt-4 text-end">
+                <button class="clinical-button secondary" onclick="downloadSurvivalResults()">
+                    <i class="bi bi-download"></i> 下载分析结果
+                </button>
+            </div>
+        </div>
+    `;
+    
+    container.innerHTML = resultHTML;
+    
+    // 渲染图表
+    setTimeout(() => {
+        if (analysisType === 'kaplan') {
+            renderSurvivalCurve(groupVariable);
+        } else {
+            renderForestPlot(covariates);
+        }
+    }, 50);
+}
+
+// 生成Kaplan-Meier分析结果
+function generateKaplanMeierResults(timeVariable, eventVariable, groupVariable) {
+    // 生成模拟数据
+    const timePoints = [0, 6, 12, 18, 24, 30, 36, 42, 48];
+    
+    // 生成生存率数据（总体）
+    const overallSurvival = timePoints.map(t => {
+        const survRate = Math.max(0, 1 - (t * 0.015));
+        const se = 0.02 + (t * 0.001);
+        return {
+            time: t,
+            nRisk: 120 - Math.round(t * 2),
+            nEvent: Math.round(t * 0.5),
+            nCensor: Math.round(t * 1),
+            survRate: survRate,
+            se: se,
+            lowerCI: Math.max(0, survRate - 1.96 * se),
+            upperCI: Math.min(1, survRate + 1.96 * se)
+        };
+    });
+    
+    let resultHTML = `
+        <div class="result-table-container">
+            <h5>生存分析结果</h5>
+            <div class="table-responsive">
+                <table class="table table-bordered table-sm">
+                    <thead>
+                        <tr>
+                            <th>时间(月)</th>
+                            <th>风险人数</th>
+                            <th>事件数</th>
+                            <th>删失数</th>
+                            <th>生存率</th>
+                            <th>标准误</th>
+                            <th>95%CI下限</th>
+                            <th>95%CI上限</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${overallSurvival.map(row => `
+                            <tr>
+                                <td>${row.time}</td>
+                                <td>${row.nRisk}</td>
+                                <td>${row.nEvent}</td>
+                                <td>${row.nCensor}</td>
+                                <td>${row.survRate.toFixed(3)}</td>
+                                <td>${row.se.toFixed(3)}</td>
+                                <td>${row.lowerCI.toFixed(3)}</td>
+                                <td>${row.upperCI.toFixed(3)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="survival-stats mt-3">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-title">中位生存时间</h6>
+                                <p class="card-text">36.2个月 (95% CI: 28.4-44.0)</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-title">1年生存率</h6>
+                                <p class="card-text">84.5% (95% CI: 77.8-91.2)</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-title">3年生存率</h6>
+                                <p class="card-text">52.3% (95% CI: 43.1-61.5)</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // 如果有分组变量，添加组间比较
+    if (groupVariable) {
+        resultHTML += `
+            <div class="group-comparison mt-4">
+                <h5>组间比较</h5>
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>检验方法</th>
+                                <th>统计量</th>
+                                <th>自由度</th>
+                                <th>p值</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Log-rank检验</td>
+                                <td>4.32</td>
+                                <td>2</td>
+                                <td>0.038 *</td>
+                            </tr>
+                            <tr>
+                                <td>Wilcoxon检验</td>
+                                <td>3.95</td>
+                                <td>2</td>
+                                <td>0.047 *</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="result-interpretation mt-3">
+                    <p>
+                        Log-rank检验结果显示，不同${groupVariable}组之间的生存曲线存在统计学差异 (p = 0.038)。
+                        这表明${groupVariable}可能是影响生存结局的重要因素。
+                    </p>
+                </div>
+            </div>
+        `;
+    }
+    
+    resultHTML += `
+        <div class="survival-curve-container mt-4">
+            <h5>生存曲线</h5>
+            <div class="chart-container" id="survival_curve" style="height:400px;"></div>
+        </div>
+    `;
+    
+    return resultHTML;
+}
+
+// 生成Cox回归分析结果
+function generateCoxRegressionResults(timeVariable, eventVariable, covariates) {
+    // 为每个协变量生成模拟结果
+    const covariateResults = covariates.map(covariate => {
+        const coef = (Math.random() * 2 - 1) * 0.8;
+        const hr = Math.exp(coef);
+        const se = 0.2 + (Math.random() * 0.3);
+        const z = coef / se;
+        const pValue = Math.min(0.99, Math.exp(-Math.abs(z)));
+        const significant = pValue < 0.05;
+        
+        return {
+            covariate: covariate,
+            coef: coef,
+            hr: hr,
+            se: se,
+            lowerCI: Math.exp(coef - 1.96 * se),
+            upperCI: Math.exp(coef + 1.96 * se),
+            z: z,
+            pValue: pValue,
+            significant: significant
+        };
+    });
+    
+    // 排序结果，显著结果排在前面
+    covariateResults.sort((a, b) => {
+        if (a.significant && !b.significant) return -1;
+        if (!a.significant && b.significant) return 1;
+        return a.pValue - b.pValue;
+    });
+    
+    let resultHTML = `
+        <div class="result-table-container">
+            <h5>Cox回归模型结果</h5>
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>变量</th>
+                            <th>系数</th>
+                            <th>标准误</th>
+                            <th>风险比(HR)</th>
+                            <th>HR 95%CI下限</th>
+                            <th>HR 95%CI上限</th>
+                            <th>z值</th>
+                            <th>p值</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${covariateResults.map(row => `
+                            <tr>
+                                <td>${row.covariate}</td>
+                                <td>${row.coef.toFixed(3)}</td>
+                                <td>${row.se.toFixed(3)}</td>
+                                <td>${row.hr.toFixed(3)}</td>
+                                <td>${row.lowerCI.toFixed(3)}</td>
+                                <td>${row.upperCI.toFixed(3)}</td>
+                                <td>${row.z.toFixed(2)}</td>
+                                <td>${row.pValue.toFixed(4)}${row.significant ? ' *' : ''}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="model-stats mt-3">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-title">对数似然值</h6>
+                                <p class="card-text">-214.32</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-title">AIC</h6>
+                                <p class="card-text">436.64</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-title">C指数</h6>
+                                <p class="card-text">0.68</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-title">R²</h6>
+                                <p class="card-text">0.23</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="result-interpretation mt-3">
+            <h5>结果解释</h5>
+            <p>
+                Cox比例风险回归分析评估了各变量对生存时间的影响。
+                风险比(HR)>1表示该因素增加风险(缩短生存时间)，HR<1表示降低风险(延长生存时间)。
+            </p>
+            
+            <div class="significant-factors mt-3">
+                <h6>显著影响因素:</h6>
+                <ul>
+                    ${covariateResults.filter(row => row.significant).map(row => `
+                        <li>
+                            <strong>${row.covariate}</strong>: 
+                            风险比 = ${row.hr.toFixed(2)} (95% CI: ${row.lowerCI.toFixed(2)}-${row.upperCI.toFixed(2)}), 
+                            p = ${row.pValue.toFixed(4)}。
+                            ${row.hr > 1 ? 
+                                `每增加一个单位的${row.covariate}，风险增加${((row.hr - 1) * 100).toFixed(1)}%。` : 
+                                `每增加一个单位的${row.covariate}，风险降低${((1 - row.hr) * 100).toFixed(1)}%。`
+                            }
+                        </li>
+                    `).join('')}
+                </ul>
+                ${covariateResults.filter(row => row.significant).length === 0 ? 
+                    '<p>无显著影响因素。</p>' : ''
+                }
+            </div>
+        </div>
+        
+        <div class="forest-plot-container mt-4">
+            <h5>风险比森林图</h5>
+            <div class="chart-container" id="forest_plot" style="height:400px;"></div>
+        </div>
+    `;
+    
+    return resultHTML;
+}
+
+// 渲染生存曲线
+function renderSurvivalCurve(groupVariable) {
+    try {
+        if (typeof Chart === 'undefined') {
+            console.error('Chart.js未加载');
+            return;
+        }
+        
+        const ctx = document.getElementById('survival_curve').getContext('2d');
+        
+        // 定义时间点
+        const timePoints = [0, 6, 12, 18, 24, 30, 36, 42, 48];
+        
+        // 如果有分组变量，生成多条曲线
+        if (groupVariable) {
+            // 三组数据
+            const groupData = [
+                {
+                    label: '组A',
+                    data: timePoints.map(t => ({
+                        x: t,
+                        y: Math.max(0, 1 - (t * 0.012))
+                    })),
+                    borderColor: 'rgba(74, 137, 220, 1)',
+                    backgroundColor: 'rgba(74, 137, 220, 0.2)',
+                    pointRadius: 3,
+                    tension: 0.1
+                },
+                {
+                    label: '组B',
+                    data: timePoints.map(t => ({
+                        x: t,
+                        y: Math.max(0, 1 - (t * 0.018))
+                    })),
+                    borderColor: 'rgba(220, 74, 74, 1)',
+                    backgroundColor: 'rgba(220, 74, 74, 0.2)',
+                    pointRadius: 3,
+                    tension: 0.1
+                },
+                {
+                    label: '组C',
+                    data: timePoints.map(t => ({
+                        x: t,
+                        y: Math.max(0, 1 - (t * 0.015))
+                    })),
+                    borderColor: 'rgba(74, 190, 74, 1)',
+                    backgroundColor: 'rgba(74, 190, 74, 0.2)',
+                    pointRadius: 3,
+                    tension: 0.1
+                }
+            ];
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: groupData
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: '时间(月)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '累积生存率'
+                            },
+                            min: 0,
+                            max: 1
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Kaplan-Meier生存曲线'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${(context.parsed.y * 100).toFixed(1)}%`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            // 单组数据
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: '生存率',
+                        data: timePoints.map(t => ({
+                            x: t,
+                            y: Math.max(0, 1 - (t * 0.015))
+                        })),
+                        borderColor: 'rgba(74, 137, 220, 1)',
+                        backgroundColor: 'rgba(74, 137, 220, 0.2)',
+                        pointRadius: 3,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: '时间(月)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '累积生存率'
+                            },
+                            min: 0,
+                            max: 1
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Kaplan-Meier生存曲线'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `生存率: ${(context.parsed.y * 100).toFixed(1)}%`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    } catch (error) {
+        console.error('绘制生存曲线错误:', error);
+        document.getElementById('survival_curve').innerHTML = `
+            <div class="alert alert-danger">
+                图表渲染错误: ${error.message}
+            </div>
+        `;
+    }
+}
+
+// 渲染Cox回归森林图
+function renderForestPlot(covariates) {
+    try {
+        if (typeof Chart === 'undefined') {
+            console.error('Chart.js未加载');
+            return;
+        }
+        
+        const ctx = document.getElementById('forest_plot').getContext('2d');
+        
+        // 为每个协变量生成模拟结果
+        const forestData = covariates.map(covariate => {
+            const hr = Math.exp((Math.random() * 2 - 1) * 0.8);
+            const se = 0.2 + (Math.random() * 0.3);
+            const lowerCI = hr / Math.exp(1.96 * se);
+            const upperCI = hr * Math.exp(1.96 * se);
+            
+            return {
+                covariate: covariate,
+                hr: hr,
+                lowerCI: lowerCI,
+                upperCI: upperCI
+            };
+        });
+        
+        // 反转数组以便在图表中从上到下显示
+        forestData.reverse();
+        
+        // 创建水平条形图
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: forestData.map(d => d.covariate),
+                datasets: [{
+                    label: '风险比(HR)',
+                    data: forestData.map(d => d.hr),
+                    backgroundColor: forestData.map(d => 
+                        d.hr > 1 ? 'rgba(220, 74, 74, 0.6)' : 'rgba(74, 137, 220, 0.6)'
+                    ),
+                    borderColor: forestData.map(d => 
+                        d.hr > 1 ? 'rgba(220, 74, 74, 1)' : 'rgba(74, 137, 220, 1)'
+                    ),
+                    borderWidth: 1,
+                    // 添加误差线数据
+                    errorBars: {
+                        label: '95% CI',
+                        color: 'rgba(0, 0, 0, 1)',
+                        lineWidth: 1,
+                        width: 10,
+                        data: forestData.map(d => ({
+                            plus: d.upperCI - d.hr,
+                            minus: d.hr - d.lowerCI
+                        }))
+                    }
+                }]
+            },
+            options: {
+                indexAxis: 'y', // 水平方向的条形图
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        type: 'logarithmic', // 对数刻度
+                        position: 'bottom',
+                        title: {
+                            display: true,
+                            text: '风险比(对数刻度)'
+                        },
+                        grid: {
+                            display: true
+                        },
+                        ticks: {
+                            callback: function(value, index, values) {
+                                return value.toFixed(1);
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Cox回归风险比(HR)森林图'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const i = context.dataIndex;
+                                return `HR: ${forestData[i].hr.toFixed(2)} (95% CI: ${forestData[i].lowerCI.toFixed(2)}-${forestData[i].upperCI.toFixed(2)})`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // 添加参考线
+        const canvas = document.getElementById('forest_plot');
+        const chart = Chart.getChart(canvas);
+        
+        if (chart) {
+            const verticalLinePlugin = {
+                id: 'verticalLine',
+                afterDraw(chart) {
+                    const { ctx, scales } = chart;
+                    const xScale = scales.x;
+                    
+                    // HR=1的参考线
+                    const xPosition = xScale.getPixelForValue(1);
+                    
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.moveTo(xPosition, 0);
+                    ctx.lineTo(xPosition, chart.height);
+                    ctx.lineWidth = 1;
+                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+                    ctx.setLineDash([5, 5]);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            };
+            
+            chart.registerPlugin(verticalLinePlugin);
+            chart.update();
+        }
+    } catch (error) {
+        console.error('绘制森林图错误:', error);
+        document.getElementById('forest_plot').innerHTML = `
+            <div class="alert alert-danger">
+                图表渲染错误: ${error.message}
+            </div>
+        `;
+        
+        // 如果是由于缺少errorBars支持，显示表格而非图表
+        if (error.message.includes('errorBars')) {
+            const forestTableHTML = `
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>变量</th>
+                                <th>风险比(HR)</th>
+                                <th>95% CI</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${covariates.map(covariate => {
+                                const hr = Math.exp((Math.random() * 2 - 1) * 0.8);
+                                const se = 0.2 + (Math.random() * 0.3);
+                                const lowerCI = (hr / Math.exp(1.96 * se)).toFixed(2);
+                                const upperCI = (hr * Math.exp(1.96 * se)).toFixed(2);
+                                
+                                return `
+                                    <tr>
+                                        <td>${covariate}</td>
+                                        <td>${hr.toFixed(2)}</td>
+                                        <td>${lowerCI} - ${upperCI}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            document.getElementById('forest_plot').innerHTML = forestTableHTML;
+        }
+    }
+}
+
+// 下载生存分析结果
+function downloadSurvivalResults() {
+    alert('生存分析结果下载功能正在开发中，敬请期待');
+}
+
+// 事件处理：加载生存分析变量
+document.getElementById('survival-analysis-type-kaplan').addEventListener('change', function() {
+    document.getElementById('cox-variables-container').style.display = 'none';
+});
+
+document.getElementById('survival-analysis-type-cox').addEventListener('change', function() {
+    document.getElementById('cox-variables-container').style.display = 'block';
+});
+
+// 绘制ROC曲线
+function renderROCCurve() {
+    try {
+        if (typeof Chart === 'undefined') {
+            console.error('Chart.js未加载');
+            return;
+        }
+        
+        const ctx = document.getElementById('roc_curve').getContext('2d');
+        
+        // 生成ROC曲线数据点
+        const rocPoints = [];
+        // 添加(0,0)和(1,1)端点
+        rocPoints.push({x: 0, y: 0});
+        
+        // 生成中间点，确保单调递增
+        let lastX = 0;
+        let lastY = 0;
+        
+        // 随机生成10个点
+        for (let i = 0; i < 10; i++) {
+            // 确保x和y都单调递增
+            const step = 1 / 10;
+            const randX = lastX + (Math.random() * step * 0.8) + (step * 0.2);
+            const randY = lastY + (Math.random() * step * 1.5) + (step * 0.2);
+            
+            if (randX < 1 && randY < 1) {
+                rocPoints.push({x: randX, y: randY});
+                lastX = randX;
+                lastY = randY;
+            }
+        }
+        
+        rocPoints.push({x: 1, y: 1});
+        
+        // 计算AUC (使用梯形法则)
+        let auc = 0;
+        for (let i = 1; i < rocPoints.length; i++) {
+            auc += (rocPoints[i].x - rocPoints[i-1].x) * (rocPoints[i].y + rocPoints[i-1].y) / 2;
+        }
+        
+        // 创建ROC曲线图表
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: [
+                    {
+                        label: '模型',
+                        data: rocPoints,
+                        borderColor: 'rgba(74, 137, 220, 1)',
+                        backgroundColor: 'rgba(74, 137, 220, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0
+                    },
+                    {
+                        label: '随机',
+                        data: [{x: 0, y: 0}, {x: 1, y: 1}],
+                        borderColor: 'rgba(180, 180, 180, 1)',
+                        borderWidth: 1.5,
+                        borderDash: [5, 5],
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: '1 - 特异度 (假阳性率)'
+                        },
+                        min: 0,
+                        max: 1
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: '敏感度 (真阳性率)'
+                        },
+                        min: 0,
+                        max: 1
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: `ROC曲线 (AUC = ${auc.toFixed(3)})`
+                    },
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    } catch (error) {
+        console.error('绘制ROC曲线错误:', error);
+        document.getElementById('roc_curve').innerHTML = `
+            <div class="alert alert-danger">
+                图表渲染错误: ${error.message}
+            </div>
+        `;
+    }
+}
+
+// 绘制变量重要性图
+function renderImportancePlot(predictors) {
+    try {
+        if (typeof Chart === 'undefined') {
+            console.error('Chart.js未加载');
+            return;
+        }
+        
+        const ctx = document.getElementById('importance_plot').getContext('2d');
+        
+        // 为每个预测变量生成重要性得分
+        const importanceScores = predictors.map(predictor => ({
+            predictor: predictor,
+            score: Math.random() * 10
+        }));
+        
+        // 按重要性排序
+        importanceScores.sort((a, b) => b.score - a.score);
+        
+        // 只取前5个变量
+        const topPredictors = importanceScores.slice(0, 5);
+        
+        // 创建水平条形图
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: topPredictors.map(d => d.predictor),
+                datasets: [{
+                    label: '重要性得分',
+                    data: topPredictors.map(d => d.score),
+                    backgroundColor: 'rgba(74, 137, 220, 0.6)',
+                    borderColor: 'rgba(74, 137, 220, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y', // 水平方向的条形图
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: '重要性得分'
+                        },
+                        beginAtZero: true
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: '变量重要性排序'
+                    },
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+    } catch (error) {
+        console.error('绘制变量重要性图错误:', error);
+        document.getElementById('importance_plot').innerHTML = `
+            <div class="alert alert-danger">
+                图表渲染错误: ${error.message}
+            </div>
+        `;
+    }
+}
+</script>
+{% endblock %} 

@@ -1,0 +1,190 @@
+{% extends "clinical_base.html" %}
+
+{% block title %}帮助中心 - 医学临床科研专病数据管理平台{% endblock %}
+
+{% block content %}
+<div class="content-title">
+    帮助中心 <i class="bi bi-question-circle info-icon"></i>
+</div>
+
+<div class="clinical-info-box mb-4">
+    <div class="info-box-title">
+        <i class="bi bi-info-circle"></i> 概述
+    </div>
+    <div class="info-box-content">
+        <p>欢迎使用医学临床科研专病数据管理平台的帮助中心。本平台旨在帮助医生和研究人员高效管理临床数据、创建研究项目并进行数据分析。</p>
+        <p>通过本平台，您可以:</p>
+        <ul>
+            <li>管理和组织临床研究数据</li>
+            <li>创建和跟踪研究项目</li>
+            <li>分析数据并生成可视化报告</li>
+            <li>与其他研究人员协作</li>
+        </ul>
+    </div>
+</div>
+
+<div class="clinical-info-box mb-4">
+    <div class="info-box-title">
+        <i class="bi bi-book"></i> 使用指南
+    </div>
+    <div class="info-box-content">
+        <div class="accordion" id="helpAccordion">
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingOne">
+                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                        如何创建新项目
+                    </button>
+                </h2>
+                <div id="collapseOne" class="accordion-collapse collapse show" aria-labelledby="headingOne" data-bs-parent="#helpAccordion">
+                    <div class="accordion-body">
+                        <ol>
+                            <li>在工作台页面，点击"我的项目卡片"部分的"新建"按钮</li>
+                            <li>在弹出的模态框中，填写项目名称和描述</li>
+                            <li>选择一个要使用的数据集</li>
+                            <li>点击"创建项目"按钮完成创建</li>
+                        </ol>
+                        <p>创建项目后，您可以随时在"我的项目"页面查看和管理您的项目。</p>
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingTwo">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                        如何使用数据集
+                    </button>
+                </h2>
+                <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo" data-bs-parent="#helpAccordion">
+                    <div class="accordion-body">
+                        <p>数据集是您进行研究和分析的基础。您可以:</p>
+                        <ul>
+                            <li>在"我的数据集"页面浏览所有可用的数据集</li>
+                            <li>点击"查看"按钮查看数据集的详细信息</li>
+                            <li>点击"分析"按钮对数据集进行分析</li>
+                            <li>在创建项目时，将特定数据集与项目关联</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingThree">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+                        如何使用分析工具
+                    </button>
+                </h2>
+                <div id="collapseThree" class="accordion-collapse collapse" aria-labelledby="headingThree" data-bs-parent="#helpAccordion">
+                    <div class="accordion-body">
+                        <p>本平台提供多种分析工具帮助您处理和理解您的研究数据:</p>
+                        <ul>
+                            <li>统计分析 - 对数据集进行基本的统计分析</li>
+                            <li>图表可视化 - 创建数据可视化图表</li>
+                            <li>报告生成 - 基于分析结果生成综合报告</li>
+                            <li>数据导出 - 将分析结果导出为多种格式</li>
+                        </ul>
+                        <p>访问"分析工具"页面以使用这些功能。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="clinical-info-box mb-4">
+    <div class="info-box-title">
+        <i class="bi bi-question-circle"></i> 常见问题
+    </div>
+    <div class="info-box-content">
+        <div class="faq-item">
+            <div class="faq-question">如何更改我的密码？</div>
+            <div class="faq-answer">
+                访问"个人资料"页面，点击"更改密码"按钮，然后输入您的当前密码和新密码即可更新。
+            </div>
+        </div>
+        <div class="faq-item">
+            <div class="faq-question">我可以与其他研究人员共享我的项目吗？</div>
+            <div class="faq-answer">
+                目前本平台暂不支持直接共享项目。但您可以导出您的数据和分析结果，然后与您的同事分享这些文件。
+            </div>
+        </div>
+        <div class="faq-item">
+            <div class="faq-question">如何导出我的数据？</div>
+            <div class="faq-answer">
+                访问"数据导出"页面，选择要导出的项目或数据集，然后选择导出格式（CSV、Excel、PDF等）进行导出。
+            </div>
+        </div>
+        <div class="faq-item">
+            <div class="faq-question">如果我遇到技术问题，应该联系谁？</div>
+            <div class="faq-answer">
+                如果您遇到任何技术问题，请联系系统管理员或发送邮件至support@zltech.com获取帮助。
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="clinical-info-box">
+    <div class="info-box-title">
+        <i class="bi bi-telephone"></i> 联系我们
+    </div>
+    <div class="info-box-content">
+        <p>如果您有任何问题、建议或反馈，请随时与我们联系：</p>
+        <ul>
+            <li><i class="bi bi-envelope"></i> 电子邮件: <a href="mailto:support@zltech.com">support@zltech.com</a></li>
+            <li><i class="bi bi-telephone"></i> 电话: 400-123-4567</li>
+            <li><i class="bi bi-chat-dots"></i> 在线支持: 工作日 9:00-18:00</li>
+        </ul>
+        <p>我们的技术支持团队会尽快回复您的咨询。</p>
+    </div>
+</div>
+
+<style>
+.faq-item {
+    margin-bottom: 15px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 15px;
+}
+
+.faq-item:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.faq-question {
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 8px;
+    position: relative;
+    padding-left: 20px;
+}
+
+.faq-question:before {
+    content: "Q:";
+    position: absolute;
+    left: 0;
+    color: #4a89dc;
+    font-weight: bold;
+}
+
+.faq-answer {
+    padding-left: 20px;
+    color: #555;
+    position: relative;
+}
+
+.faq-answer:before {
+    content: "A:";
+    position: absolute;
+    left: 0;
+    color: #2ecc71;
+    font-weight: bold;
+}
+
+.accordion-button:not(.collapsed) {
+    background-color: #e9f0fd;
+    color: #4a89dc;
+}
+
+.accordion-button:focus {
+    box-shadow: 0 0 0 0.25rem rgba(74, 137, 220, 0.25);
+}
+</style>
+{% endblock %} 

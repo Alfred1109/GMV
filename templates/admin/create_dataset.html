@@ -1,0 +1,609 @@
+{% extends "clinical_base.html" %}
+
+{% block title %}创建数据集 - 医学临床科研专病数据管理平台{% endblock %}
+
+{% block content %}
+<div class="content-title">
+    创建数据集 <i class="bi bi-database-add info-icon"></i>
+    <a href="{{ url_for('datasets') }}" class="float-end btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> 返回数据集列表
+    </a>
+</div>
+
+<div class="clinical-info-box">
+    <div class="info-box-title">
+        填写数据集信息
+    </div>
+    <div class="info-box-content">
+        <form action="{{ url_for('create_dataset') }}" method="POST" class="p-3">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="mb-3">
+                <label for="name" class="form-label">数据集名称</label>
+                <input type="text" class="form-control" id="name" name="name" required>
+                <div class="form-text">为数据集提供一个清晰、具有描述性的名称，便于日后识别和管理</div>
+            </div>
+            
+            <div class="mb-3">
+                <label for="description" class="form-label">描述</label>
+                <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                <div class="form-text">添加关于数据集内容、用途、特点等信息的详细描述</div>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">数据源选择</label>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>选择</th>
+                                <th>数据源名称</th>
+                                <th>类型</th>
+                                <th>格式</th>
+                                <th>过滤条件</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for source in sources %}
+                            <tr>
+                                <td>
+                                    <input class="form-check-input" type="checkbox" name="source_ids" value="{{ source.id }}" id="source_{{ source.id }}">
+                                </td>
+                                <td>
+                                    <label class="form-check-label" for="source_{{ source.id }}">
+                                        {{ source.name }}
+                                    </label>
+                                </td>
+                                <td>{{ source.source_type }}</td>
+                                <td>{{ source.format }}</td>
+                                <td>
+                                    <input type="text" class="form-control form-control-sm" name="filter_criteria" placeholder="可选过滤条件">
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="form-text">选择要纳入此数据集的数据源，以及可选的过滤条件（如SQL WHERE子句或JSON过滤条件）</div>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">自定义字段配置</label>
+                <div class="d-flex mb-2">
+                    <button type="button" class="btn btn-sm btn-outline-primary me-2" data-bs-toggle="modal" data-bs-target="#batchFieldsModal">
+                        <i class="bi bi-list-check"></i> 批量添加字段
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="importTemplateBtn">
+                        <i class="bi bi-download"></i> 导出模板
+                    </button>
+                </div>
+                <div id="customFields">
+                    <div class="custom-field-item mb-3 border rounded p-2">
+                        <div class="row mb-2">
+                            <div class="col-md-3">
+                                <label class="form-label">字段名称</label>
+                                <input type="text" class="form-control" name="field_names[]" placeholder="字段名称">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">类型</label>
+                                <select class="form-select" name="field_types[]">
+                                    <option value="text">文本</option>
+                                    <option value="number">数值</option>
+                                    <option value="date">日期</option>
+                                    <option value="boolean">布尔值</option>
+                                    <option value="enum">枚举</option>
+                                </select>
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label">描述</label>
+                                <input type="text" class="form-control" name="field_descriptions[]" placeholder="字段描述">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="button" class="btn btn-outline-danger btn-sm d-block remove-field">删除</button>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <label class="form-label">取值范围</label>
+                                <input type="text" class="form-control" name="field_ranges[]" placeholder="如: 0-100">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">自定编码</label>
+                                <input type="text" class="form-control" name="field_custom_codes[]" placeholder="如: CODE001">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">规范编码</label>
+                                <input type="text" class="form-control" name="field_standard_codes[]" placeholder="如: LOINC:12345-6">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">其他属性</label>
+                                <input type="text" class="form-control" name="field_properties[]" placeholder="其他属性">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" id="addFieldBtn" class="btn btn-sm btn-outline-primary mt-2">
+                    <i class="bi bi-plus-circle"></i> 添加字段
+                </button>
+                <div class="form-text">配置数据集的自定义字段，用于数据录入和查询</div>
+                <!-- 隐藏字段存储所有字段的JSON数据 -->
+                <input type="hidden" name="custom_fields" id="customFieldsJson" value="">
+            </div>
+            
+            <div class="mb-3">
+                <label for="privacy_level" class="form-label">隐私级别</label>
+                <select class="form-select" id="privacy_level" name="privacy_level">
+                    <option value="public">公开</option>
+                    <option value="team" selected>团队共享</option>
+                    <option value="private">私有</option>
+                </select>
+                <div class="form-text">设置数据集的访问权限级别</div>
+            </div>
+            
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                <a href="{{ url_for('datasets') }}" class="btn btn-secondary me-md-2">取消</a>
+                <button type="submit" class="clinical-button">创建数据集</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="clinical-info-box mt-4">
+    <div class="info-box-title">
+        数据集创建说明
+    </div>
+    <div class="info-box-content p-3">
+        <div class="row">
+            <div class="col-md-6">
+                <h5>数据集创建流程</h5>
+                <ol class="list-group list-group-numbered">
+                    <li class="list-group-item">填写数据集基本信息（名称、描述）</li>
+                    <li class="list-group-item">选择要包含的数据源</li>
+                    <li class="list-group-item">配置自定义字段（可选）</li>
+                    <li class="list-group-item">设置访问权限</li>
+                    <li class="list-group-item">创建完成后可进行数据录入或分析</li>
+                </ol>
+            </div>
+            <div class="col-md-6">
+                <h5>数据集最佳实践</h5>
+                <ul class="list-group">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        使用清晰描述性的名称
+                        <span class="badge bg-primary rounded-pill"><i class="bi bi-check-circle"></i></span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        详细描述数据集的内容和用途
+                        <span class="badge bg-primary rounded-pill"><i class="bi bi-check-circle"></i></span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        合理配置字段和类型
+                        <span class="badge bg-primary rounded-pill"><i class="bi bi-check-circle"></i></span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        设置适当的访问权限
+                        <span class="badge bg-primary rounded-pill"><i class="bi bi-shield-check"></i></span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 批量添加字段模态框 -->
+<div class="modal fade" id="batchFieldsModal" tabindex="-1" aria-labelledby="batchFieldsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="batchFieldsModalLabel">批量添加字段</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">字段列表（每行一个字段，格式：字段名称,字段类型,描述,取值范围,自定编码,规范编码,其他属性）</label>
+                    <textarea class="form-control" id="batchFieldsText" rows="15" placeholder="例如：
+姓名,text,患者姓名,,NAME,MR.NAME,required
+年龄,number,患者年龄,0-120,AGE,MR.AGE,
+性别,enum,患者性别,男/女,SEX,MR.SEX,required
+采集日期,date,检查日期,,DATE,MR.DATE,"></textarea>
+                </div>
+                <div class="alert alert-info">
+                    <strong>提示：</strong>
+                    <ul>
+                        <li>每行一个字段定义，用逗号分隔各属性</li>
+                        <li>字段类型可选值：text(文本), number(数值), date(日期), boolean(布尔值), enum(枚举)</li>
+                        <li>取值范围举例：数值类型使用"最小值-最大值"，枚举类型使用"选项1/选项2/选项3"</li>
+                        <li>可以通过Excel等工具编辑CSV格式然后复制粘贴到此处</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="importFieldsBtn">导入字段</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 添加自定义字段
+    const addFieldBtn = document.getElementById('addFieldBtn');
+    const customFields = document.getElementById('customFields');
+    const customFieldsJson = document.getElementById('customFieldsJson');
+    
+    addFieldBtn.addEventListener('click', function() {
+        const fieldItem = document.createElement('div');
+        fieldItem.className = 'custom-field-item mb-3 border rounded p-2';
+        fieldItem.innerHTML = `
+            <div class="row mb-2">
+                <div class="col-md-3">
+                    <label class="form-label">字段名称</label>
+                    <input type="text" class="form-control" name="field_names[]" placeholder="字段名称">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">类型</label>
+                    <select class="form-select" name="field_types[]">
+                        <option value="text">文本</option>
+                        <option value="number">数值</option>
+                        <option value="date">日期</option>
+                        <option value="boolean">布尔值</option>
+                        <option value="enum">枚举</option>
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">描述</label>
+                    <input type="text" class="form-control" name="field_descriptions[]" placeholder="字段描述">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="button" class="btn btn-outline-danger btn-sm d-block remove-field">删除</button>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-3">
+                    <label class="form-label">取值范围</label>
+                    <input type="text" class="form-control" name="field_ranges[]" placeholder="如: 0-100">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">自定编码</label>
+                    <input type="text" class="form-control" name="field_custom_codes[]" placeholder="如: CODE001">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">规范编码</label>
+                    <input type="text" class="form-control" name="field_standard_codes[]" placeholder="如: LOINC:12345-6">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">其他属性</label>
+                    <input type="text" class="form-control" name="field_properties[]" placeholder="其他属性">
+                </div>
+            </div>
+        `;
+        customFields.appendChild(fieldItem);
+        
+        // 为新添加的删除按钮添加事件监听
+        fieldItem.querySelector('.remove-field').addEventListener('click', function() {
+            fieldItem.remove();
+        });
+    });
+    
+    // 为初始的删除按钮添加事件监听
+    document.querySelectorAll('.remove-field').forEach(button => {
+        button.addEventListener('click', function() {
+            this.closest('.custom-field-item').remove();
+        });
+    });
+    
+    // 批量导入字段按钮点击事件
+    document.getElementById('importFieldsBtn').addEventListener('click', function() {
+        const batchText = document.getElementById('batchFieldsText').value.trim();
+        if (!batchText) {
+            alert('请先输入字段数据');
+            return;
+        }
+        
+        // 解析文本中的字段定义
+        const lines = batchText.split('\n');
+        let validLines = 0;
+        let errorLines = [];
+        
+        console.log(`开始解析，共 ${lines.length} 行`);
+        
+        lines.forEach((line, index) => {
+            line = line.trim();
+            if (!line) return; // 跳过空行
+            
+            try {
+                // 使用改进的CSV解析方法
+                const parts = parseCSVLineImproved(line);
+                console.log(`第 ${index+1} 行解析结果:`, parts);
+                
+                if (parts.length < 2) {
+                    errorLines.push(`第 ${index+1} 行: 字段格式不正确，至少需要字段名和类型`);
+                    return; // 至少需要字段名和类型
+                }
+                
+                const fieldName = parts[0].trim();
+                let fieldType = parts[1].trim().toLowerCase(); // 转小写以提高兼容性
+                const fieldDesc = parts.length > 2 ? parts[2].trim() : '';
+                const fieldRange = parts.length > 3 ? parts[3].trim() : '';
+                const fieldCustomCode = parts.length > 4 ? parts[4].trim() : '';
+                const fieldStandardCode = parts.length > 5 ? parts[5].trim() : '';
+                const fieldProperties = parts.length > 6 ? parts[6].trim() : '';
+                
+                // 字段类型规范化处理
+                if (fieldType.includes('text') || fieldType.includes('字符') || fieldType.includes('文本')) {
+                    fieldType = 'text';
+                } else if (fieldType.includes('num') || fieldType.includes('数值') || fieldType.includes('数字')) {
+                    fieldType = 'number';
+                } else if (fieldType.includes('date') || fieldType.includes('日期') || fieldType.includes('时间')) {
+                    fieldType = 'date';
+                } else if (fieldType.includes('bool') || fieldType.includes('布尔') || fieldType.includes('是否')) {
+                    fieldType = 'boolean';
+                } else if (fieldType.includes('enum') || fieldType.includes('枚举') || fieldType.includes('选择')) {
+                    fieldType = 'enum';
+                }
+                
+                // 验证字段类型
+                const validTypes = ['text', 'number', 'date', 'boolean', 'enum'];
+                if (!validTypes.includes(fieldType)) {
+                    errorLines.push(`第 ${index+1} 行: 不支持的字段类型 "${fieldType}"`);
+                    return;
+                }
+                
+                // 创建字段项
+                const fieldItem = document.createElement('div');
+                fieldItem.className = 'custom-field-item mb-3 border rounded p-2';
+                fieldItem.innerHTML = `
+                    <div class="row mb-2">
+                        <div class="col-md-3">
+                            <label class="form-label">字段名称</label>
+                            <input type="text" class="form-control" name="field_names[]" value="${escapeHtml(fieldName)}" placeholder="字段名称">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">类型</label>
+                            <select class="form-select" name="field_types[]">
+                                <option value="text" ${fieldType === 'text' ? 'selected' : ''}>文本</option>
+                                <option value="number" ${fieldType === 'number' ? 'selected' : ''}>数值</option>
+                                <option value="date" ${fieldType === 'date' ? 'selected' : ''}>日期</option>
+                                <option value="boolean" ${fieldType === 'boolean' ? 'selected' : ''}>布尔值</option>
+                                <option value="enum" ${fieldType === 'enum' ? 'selected' : ''}>枚举</option>
+                            </select>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label">描述</label>
+                            <input type="text" class="form-control" name="field_descriptions[]" value="${escapeHtml(fieldDesc)}" placeholder="字段描述">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="button" class="btn btn-outline-danger btn-sm d-block remove-field">删除</button>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <label class="form-label">取值范围</label>
+                            <input type="text" class="form-control" name="field_ranges[]" value="${escapeHtml(fieldRange)}" placeholder="如: 0-100">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">自定编码</label>
+                            <input type="text" class="form-control" name="field_custom_codes[]" value="${escapeHtml(fieldCustomCode)}" placeholder="如: CODE001">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">规范编码</label>
+                            <input type="text" class="form-control" name="field_standard_codes[]" value="${escapeHtml(fieldStandardCode)}" placeholder="如: LOINC:12345-6">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">其他属性</label>
+                            <input type="text" class="form-control" name="field_properties[]" value="${escapeHtml(fieldProperties)}" placeholder="其他属性">
+                        </div>
+                    </div>
+                `;
+                
+                customFields.appendChild(fieldItem);
+                
+                // 为新添加的删除按钮添加事件监听
+                fieldItem.querySelector('.remove-field').addEventListener('click', function() {
+                    fieldItem.remove();
+                });
+                
+                validLines++;
+            } catch (e) {
+                console.error(`解析第 ${index+1} 行时出错:`, e);
+                errorLines.push(`第 ${index+1} 行: ${e.message}`);
+            }
+        });
+        
+        if (validLines > 0) {
+            // 关闭模态框
+            bootstrap.Modal.getInstance(document.getElementById('batchFieldsModal')).hide();
+            
+            if (errorLines.length > 0) {
+                // 有些行解析成功，有些失败
+                alert(`成功导入 ${validLines} 个字段，但有 ${errorLines.length} 个字段定义无效。\n\n${errorLines.join('\n')}`);
+            } else {
+                alert(`成功导入 ${validLines} 个字段`);
+            }
+        } else {
+            // 所有行都解析失败
+            let errorMsg = '没有有效的字段定义，请检查格式。\n\n可能的原因：\n';
+            errorMsg += '1. 字段定义不符合要求格式（字段名,类型,描述,...）\n';
+            errorMsg += '2. 字段类型必须是：text, number, date, boolean, enum 之一\n';
+            errorMsg += '3. CSV格式可能包含特殊字符导致解析失败\n\n';
+            errorMsg += errorLines.join('\n');
+            
+            alert(errorMsg);
+        }
+    });
+    
+    // 导出模板按钮点击事件
+    document.getElementById('importTemplateBtn').addEventListener('click', function() {
+        const templateContent = `姓名,text,患者姓名,,NAME,MR.NAME,required
+年龄,number,患者年龄,0-120,AGE,MR.AGE,
+性别,enum,患者性别,男/女,SEX,MR.SEX,required
+采集日期,date,检查日期,,DATE,MR.DATE,
+体温,number,体温,35-42,TEMP,VITAL.TEMP,
+脉搏,number,脉搏,40-200,PULSE,VITAL.PULSE,
+收缩压,number,收缩压,60-260,SBP,VITAL.SBP,
+舒张压,number,舒张压,40-160,DBP,VITAL.DBP,
+诊断结果,text,诊断结果,,DIAG,MR.DIAG,required`;
+        
+        // 创建下载链接
+        const element = document.createElement('a');
+        element.setAttribute('href', 'data:text/csv;charset=utf-8,' + encodeURIComponent(templateContent));
+        element.setAttribute('download', '数据集字段模板.csv');
+        element.style.display = 'none';
+        
+        document.body.appendChild(element);
+        element.click();
+        document.body.removeChild(element);
+    });
+    
+    // 解析CSV行，考虑引号包裹的内容 - 改进版
+    function parseCSVLineImproved(line) {
+        // 处理一些常见的CSV格式问题
+        line = line.replace(/\r/g, ''); // 移除可能的回车符
+        
+        // 检测分隔符，支持逗号、制表符、分号
+        let separator = ',';
+        const commaCount = (line.match(/,/g) || []).length;
+        const tabCount = (line.match(/\t/g) || []).length;
+        const semicolonCount = (line.match(/;/g) || []).length;
+        
+        if (tabCount > commaCount && tabCount > semicolonCount) {
+            separator = '\t';
+            console.log("检测到制表符分隔");
+        } else if (semicolonCount > commaCount && semicolonCount > tabCount) {
+            separator = ';';
+            console.log("检测到分号分隔");
+        }
+        
+        // Excel和其他应用可能使用不同的引号字符
+        const possibleQuotes = ['"', '"', '"', "'", "'", "'"];
+        let quoteChar = '"';
+        
+        // 尝试找出引用字符
+        for (const quote of possibleQuotes) {
+            const quoteCount = (line.match(new RegExp(quote, 'g')) || []).length;
+            if (quoteCount >= 2) {
+                quoteChar = quote;
+                if (quote !== '"') {
+                    console.log(`检测到非标准引号: ${quote}`);
+                }
+                break;
+            }
+        }
+        
+        // 标准CSV解析，考虑引号包裹的内容
+        const result = [];
+        let startPos = 0;
+        let inQuotes = false;
+        
+        for (let i = 0; i < line.length; i++) {
+            // 处理引号
+            if (possibleQuotes.includes(line[i])) {
+                inQuotes = !inQuotes;
+                continue;
+            }
+            
+            // 处理分隔符
+            if (line[i] === separator && !inQuotes) {
+                let value = line.substring(startPos, i).trim();
+                
+                // 移除引号
+                for (const quote of possibleQuotes) {
+                    value = value.replace(new RegExp(`^${quote}|${quote}$`, 'g'), '');
+                }
+                
+                result.push(value);
+                startPos = i + 1;
+            }
+        }
+        
+        // 处理最后一个字段
+        let lastValue = line.substring(startPos).trim();
+        
+        // 移除引号
+        for (const quote of possibleQuotes) {
+            lastValue = lastValue.replace(new RegExp(`^${quote}|${quote}$`, 'g'), '');
+        }
+        
+        result.push(lastValue);
+        
+        // 如果解析失败或未解析出足够的列，尝试简单地按分隔符拆分
+        if (result.length < 2) {
+            console.log("高级解析失败，尝试简单拆分");
+            return line.split(separator).map(item => item.trim());
+        }
+        
+        return result;
+    }
+    
+    // 解析CSV行，考虑引号包裹的内容
+    function parseCSVLine(line) {
+        const result = [];
+        let startPos = 0;
+        let inQuotes = false;
+        
+        for (let i = 0; i < line.length; i++) {
+            if (line[i] === '"') {
+                inQuotes = !inQuotes;
+            } else if (line[i] === ',' && !inQuotes) {
+                result.push(line.substring(startPos, i).replace(/^"|"$/g, ''));
+                startPos = i + 1;
+            }
+        }
+        
+        // 处理最后一个字段
+        result.push(line.substring(startPos).replace(/^"|"$/g, ''));
+        
+        return result;
+    }
+    
+    // HTML转义函数
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // 表单提交前收集自定义字段数据
+    document.querySelector('form').addEventListener('submit', function(e) {
+        // 阻止表单默认提交
+        e.preventDefault();
+        
+        // 收集所有自定义字段信息
+        const fieldItems = document.querySelectorAll('.custom-field-item');
+        const customFieldsData = [];
+        
+        fieldItems.forEach(item => {
+            const nameInput = item.querySelector('input[name="field_names[]"]');
+            const typeSelect = item.querySelector('select[name="field_types[]"]');
+            const descInput = item.querySelector('input[name="field_descriptions[]"]');
+            const rangeInput = item.querySelector('input[name="field_ranges[]"]');
+            const customCodeInput = item.querySelector('input[name="field_custom_codes[]"]');
+            const standardCodeInput = item.querySelector('input[name="field_standard_codes[]"]');
+            const propertiesInput = item.querySelector('input[name="field_properties[]"]');
+            
+            if (nameInput && nameInput.value.trim() !== '') {
+                customFieldsData.push({
+                    name: nameInput.value.trim(),
+                    type: typeSelect ? typeSelect.value : 'text',
+                    description: descInput ? descInput.value.trim() : '',
+                    range: rangeInput ? rangeInput.value.trim() : '',
+                    customCode: customCodeInput ? customCodeInput.value.trim() : '',
+                    standardCode: standardCodeInput ? standardCodeInput.value.trim() : '',
+                    properties: propertiesInput ? propertiesInput.value.trim() : ''
+                });
+            }
+        });
+        
+        // 将自定义字段数据保存到隐藏输入
+        customFieldsJson.value = JSON.stringify(customFieldsData);
+        
+        // 提交表单
+        this.submit();
+    });
+});
+</script>
+{% endblock %} 

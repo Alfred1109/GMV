@@ -1,0 +1,9 @@
+姓名	text	患者姓名		NAME	MR.NAME	required
+年龄	number	患者年龄	0-120	AGE	MR.AGE	
+性别	enum	患者性别	男/女	SEX	MR.SEX	required
+采集日期	date	检查日期		DATE	MR.DATE	
+体温	number	体温	35-42	TEMP	VITAL.TEMP	
+脉搏	number	脉搏	40-200	PULSE	VITAL.PULSE	
+收缩压	number	收缩压	60-260	SBP	VITAL.SBP	
+舒张压	number	舒张压	40-160	DBP	VITAL.DBP	
+诊断结果	text	诊断结果		DIAG	MR.DIAG	required

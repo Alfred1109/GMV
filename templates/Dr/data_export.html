@@ -1,0 +1,497 @@
+{% extends "clinical_base.html" %}
+
+{% block title %}数据导出 - 医学临床科研专病数据管理平台{% endblock %}
+
+{% block extra_css %}
+<style>
+/* 导出页面特定样式 */
+.radio-options,
+.checkbox-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 5px;
+}
+
+.anonymize-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+    padding-left: 20px;
+}
+
+.filter-conditions {
+    margin-bottom: 10px;
+}
+
+.filter-condition {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 8px;
+    align-items: center;
+}
+
+.filter-remove {
+    background: none;
+    border: none;
+    color: #dc3545;
+    cursor: pointer;
+    padding: 0;
+    font-size: 16px;
+}
+
+.add-filter-btn {
+    background: none;
+    border: 1px dashed #ccc;
+    color: #666;
+    cursor: pointer;
+    padding: 5px 10px;
+    border-radius: 3px;
+    width: 100%;
+    text-align: center;
+    margin-top: 5px;
+}
+
+.add-filter-btn:hover {
+    background-color: #f8f9fa;
+    color: #333;
+}
+
+.export-action {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.empty-history-container {
+    text-align: center;
+    padding: 40px 0;
+    color: #888;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.empty-history-icon {
+    font-size: 50px;
+    margin-bottom: 15px;
+    color: #ccc;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background-color: #f0f0f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.empty-history-text {
+    font-size: 14px;
+    color: #666;
+}
+
+.sidebar-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.option-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.option-item:hover {
+    background-color: #f0f7ff;
+}
+
+.option-item i {
+    color: var(--primary-blue);
+}
+</style>
+{% endblock %}
+
+{% block custom_sidebar %}
+<!-- 导出选项 -->
+<div class="clinical-info-box sidebar-box">
+    <div class="info-box-title">
+        <i class="bi bi-gear"></i> 导出选项
+    </div>
+    <div class="info-box-content">
+        <div class="sidebar-options">
+            <div class="option-item">
+                <i class="bi bi-file-earmark-text"></i>
+                <span>常用导出模板</span>
+            </div>
+            <div class="option-item">
+                <i class="bi bi-clock-history"></i>
+                <span>查看历史导出</span>
+            </div>
+            <div class="option-item">
+                <i class="bi bi-cloud-download"></i>
+                <span>批量下载</span>
+            </div>
+            <div class="option-item">
+                <i class="bi bi-question-circle"></i>
+                <span>导出帮助</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- 顶部导航栏 -->
+<div class="top-navigation">
+    <div class="top-nav-left">
+        <div class="content-title">
+            数据导出 <i class="bi bi-file-earmark-arrow-down"></i>
+        </div>
+    </div>
+</div>
+
+<!-- 主内容区域容器 -->
+    <div class="export-container">
+        <!-- 左侧：导出配置 -->
+        <div class="export-config">
+            <div class="clinical-info-box">
+                <div class="info-box-title">
+                    <i class="bi bi-gear"></i> 导出配置
+                </div>
+                <div class="info-box-content">
+                    <form class="export-form">
+                        <div class="form-group">
+                            <label for="dataset-select">选择数据集</label>
+                            <select class="form-control" id="dataset-select" required>
+                                <option value="">-- 请选择数据集 --</option>
+                                {% for dataset in available_datasets %}
+                                <option value="{{ dataset.id }}">{{ dataset.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>导出范围</label>
+                            <div class="radio-options">
+                                <label>
+                                    <input type="radio" name="export_scope" value="all" checked>
+                                    导出全部数据
+                                </label>
+                                <label>
+                                    <input type="radio" name="export_scope" value="project">
+                                    关联到项目的数据
+                                </label>
+                                <label>
+                                    <input type="radio" name="export_scope" value="filtered">
+                                    按条件筛选数据
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group project-select-group" style="display: none;">
+                            <label for="project-select">选择项目</label>
+                            <select class="form-control" id="project-select">
+                                <option value="">-- 请选择项目 --</option>
+                                {% for project in projects %}
+                                <option value="{{ project.id }}">{{ project.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="form-group filter-group" style="display: none;">
+                            <label>筛选条件</label>
+                            <div class="filter-conditions">
+                                <div class="filter-condition">
+                                    <select class="form-control field-select">
+                                        <option value="">请选择字段</option>
+                                        <option value="age">年龄</option>
+                                        <option value="gender">性别</option>
+                                        <option value="diagnosis">诊断</option>
+                                        <option value="treatment">治疗方案</option>
+                                    </select>
+                                    
+                                    <select class="form-control operator-select">
+                                        <option value="">请选择操作符</option>
+                                        <option value="eq">等于</option>
+                                        <option value="gt">大于</option>
+                                        <option value="lt">小于</option>
+                                        <option value="contains">包含</option>
+                                    </select>
+                                    
+                                    <input type="text" class="form-control value-input" placeholder="输入值">
+                                    
+                                    <button type="button" class="filter-remove">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <button type="button" class="add-filter-btn">
+                                <i class="bi bi-plus-circle"></i> 添加条件
+                            </button>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>导出格式</label>
+                            <div class="radio-options">
+                                <label>
+                                    <input type="radio" name="export_format" value="csv" checked>
+                                    CSV
+                                </label>
+                                <label>
+                                    <input type="radio" name="export_format" value="excel">
+                                    Excel
+                                </label>
+                                <label>
+                                    <input type="radio" name="export_format" value="json">
+                                    JSON
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>数据匿名化</label>
+                            <div class="checkbox-options">
+                                <label>
+                                    <input type="checkbox" name="anonymize" value="1" checked>
+                                    导出时对敏感信息进行匿名化处理
+                                </label>
+                            </div>
+                            <div class="anonymize-options">
+                                <label>
+                                    <input type="checkbox" name="anon_options[]" value="name" checked>
+                                    姓名
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="anon_options[]" value="id_number" checked>
+                                    身份证号
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="anon_options[]" value="address" checked>
+                                    地址
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="anon_options[]" value="phone" checked>
+                                    联系电话
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="export-action">
+                            <button type="submit" class="clinical-button">
+                                <i class="bi bi-file-earmark-arrow-down"></i> 生成导出文件
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 右侧：导出历史 -->
+        <div class="export-history">
+            <div class="clinical-info-box">
+                <div class="info-box-title">
+                    <i class="bi bi-clock-history"></i> 导出历史记录
+                </div>
+                <div class="info-box-content">
+                    {% if export_history and export_history|length > 0 %}
+                    <table class="clinical-table">
+                        <thead>
+                            <tr>
+                                <th>导出文件</th>
+                                <th>导出日期</th>
+                                <th>格式</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for export in export_history %}
+                            <tr>
+                                <td>{{ export.file_name }}</td>
+                                <td>{{ export.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <td>{{ export.format }}</td>
+                                <td>
+                                    <span class="status-badge {{ export.status }}">
+                                        {{ '已完成' if export.status == 'completed' else '处理中' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="table-actions">
+                                        {% if export.status == 'completed' %}
+                                        <a href="{{ url_for('download_export', export_id=export.id) }}" class="clinical-button sm">
+                                            <i class="bi bi-cloud-download"></i> 下载
+                                        </a>
+                                        {% else %}
+                                        <span class="processing-badge">
+                                            <i class="bi bi-arrow-repeat spinning"></i> 处理中
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                <div class="empty-history-container">
+                    <div class="empty-history-icon">
+                            <i class="bi bi-clock-history"></i>
+                    </div>
+                    <div class="empty-history-text">您还没有导出历史记录</div>
+                </div>
+                {% endif %}
+            </div>
+                            </div>
+                            </div>
+                        </div>
+                        
+<!-- 导出进度模态框 -->
+<div class="modal fade" id="exportProgressModal" tabindex="-1" aria-labelledby="exportProgressModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exportProgressModalLabel">导出进度</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+            <div class="modal-body">
+                <div class="progress-container">
+                    <div class="progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                    <div class="progress-text text-center mt-2">准备导出数据...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+    // 范围选择变更
+        const scopeRadios = document.querySelectorAll('input[name="export_scope"]');
+        const projectSelectGroup = document.querySelector('.project-select-group');
+        const filterGroup = document.querySelector('.filter-group');
+        
+        scopeRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                if (this.value === 'project') {
+                    projectSelectGroup.style.display = 'block';
+                    filterGroup.style.display = 'none';
+                } else if (this.value === 'filtered') {
+                    projectSelectGroup.style.display = 'none';
+                    filterGroup.style.display = 'block';
+                } else {
+                    projectSelectGroup.style.display = 'none';
+                    filterGroup.style.display = 'none';
+                }
+            });
+        });
+        
+        // 添加筛选条件
+        const addFilterBtn = document.querySelector('.add-filter-btn');
+        const filterConditions = document.querySelector('.filter-conditions');
+        
+        if (addFilterBtn) {
+            addFilterBtn.addEventListener('click', function() {
+                const newCondition = document.createElement('div');
+                newCondition.className = 'filter-condition';
+                newCondition.innerHTML = `
+                    <select class="form-control field-select">
+                        <option value="">请选择字段</option>
+                        <option value="age">年龄</option>
+                        <option value="gender">性别</option>
+                        <option value="diagnosis">诊断</option>
+                        <option value="treatment">治疗方案</option>
+                    </select>
+                    
+                    <select class="form-control operator-select">
+                        <option value="">请选择操作符</option>
+                        <option value="eq">等于</option>
+                        <option value="gt">大于</option>
+                        <option value="lt">小于</option>
+                        <option value="contains">包含</option>
+                    </select>
+                    
+                    <input type="text" class="form-control value-input" placeholder="输入值">
+                    
+                    <button type="button" class="filter-remove">
+                        <i class="bi bi-x"></i>
+                    </button>
+                `;
+                
+                filterConditions.appendChild(newCondition);
+                
+            // 添加删除按钮事件
+            newCondition.querySelector('.filter-remove').addEventListener('click', function() {
+                    newCondition.remove();
+                });
+            });
+        }
+        
+    // 初始化删除按钮事件
+    document.querySelectorAll('.filter-remove').forEach(btn => {
+        btn.addEventListener('click', function() {
+                this.closest('.filter-condition').remove();
+            });
+    });
+        
+    // 表单提交处理
+        const exportForm = document.querySelector('.export-form');
+        if (exportForm) {
+            exportForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+            // 验证表单
+            const datasetSelect = document.getElementById('dataset-select');
+            if (!datasetSelect.value) {
+                alert('请选择数据集');
+                    return;
+                }
+                
+            // 显示进度模态框
+            const progressModal = new bootstrap.Modal(document.getElementById('exportProgressModal'));
+            progressModal.show();
+            
+            // 模拟导出进度
+            const progressBar = document.querySelector('.progress-bar');
+            const progressText = document.querySelector('.progress-text');
+            let progress = 0;
+            
+            const interval = setInterval(() => {
+                progress += 5;
+                progressBar.style.width = `${progress}%`;
+                progressBar.setAttribute('aria-valuenow', progress);
+                
+                if (progress < 30) {
+                    progressText.textContent = '正在准备数据...';
+                } else if (progress < 60) {
+                    progressText.textContent = '正在处理数据...';
+                } else if (progress < 90) {
+                    progressText.textContent = '正在生成导出文件...';
+                } else {
+                    progressText.textContent = '导出完成，准备下载...';
+                }
+                
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    
+                    // 模拟导出完成后刷新页面
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                }
+            }, 200);
+        });
+    }
+    });
+</script>
+{% endblock %}
+{% endblock %} 

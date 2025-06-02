@@ -1,0 +1,281 @@
+{% extends "clinical_base.html" %}
+
+{% block title %}查看项目 - {{ project.name }} - 医学临床科研专病数据管理平台{% endblock %}
+
+{% block custom_sidebar %}
+<!-- 项目元数据 -->
+<div class="clinical-info-box sidebar-box">
+    <div class="info-box-title">
+        <i class="bi bi-info-circle"></i> 项目信息
+    </div>
+    <div class="info-box-content">
+        <div class="project-metadata">
+            <div class="metadata-item">
+                <span class="metadata-label"><i class="bi bi-calendar3"></i> 创建日期:</span>
+                <span class="metadata-value">{{ project.created_at.strftime('%Y-%m-%d') }}</span>
+            </div>
+            <div class="metadata-item">
+                <span class="metadata-label"><i class="bi bi-person"></i> 创建者:</span>
+                <span class="metadata-value">{{ current_user.username }}</span>
+            </div>
+            <div class="metadata-item">
+                <span class="metadata-label"><i class="bi bi-tag"></i> 状态:</span>
+                <span class="metadata-value project-status {{ project.status }}">
+                    {{ '进行中' if project.status == 'active' else ('已完成' if project.status == 'completed' else '进行中') }}
+                </span>
+            </div>
+            {% if project.tags %}
+            <div class="metadata-item">
+                <span class="metadata-label"><i class="bi bi-tags"></i> 标签:</span>
+                <div class="tag-container">
+                    {% for tag in project.tags %}
+                    <span class="clinical-tag">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- 快速操作 -->
+<div class="clinical-info-box sidebar-box">
+    <div class="info-box-title">
+        <i class="bi bi-lightning"></i> 快速操作
+    </div>
+    <div class="info-box-content">
+        <div class="quick-links">
+            <a href="{{ url_for('doctor_edit_project', project_id=project.id) }}" class="quick-link">
+                <i class="bi bi-pencil"></i> 编辑项目
+            </a>
+            {% if project.status != 'completed' %}
+            <button class="quick-link" data-bs-toggle="modal" data-bs-target="#completeProjectModal">
+                <i class="bi bi-check-circle"></i> 完结项目
+            </button>
+            {% endif %}
+            <button class="quick-link danger" data-bs-toggle="modal" data-bs-target="#deleteProjectModal">
+                <i class="bi bi-trash"></i> 删除项目
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- 顶部导航栏 -->
+<div class="top-navigation">
+    <div class="top-nav-left">
+        <div class="content-title">
+            查看项目: {{ project.name }} <i class="bi bi-info-circle info-icon"></i>
+        </div>
+    </div>
+    <div class="top-nav-right">
+        <a href="{{ url_for('doctor_dashboard') }}" class="clinical-button secondary">
+            <i class="bi bi-arrow-left"></i> 返回工作台
+        </a>
+        <a href="{{ url_for('doctor_my_projects') }}" class="clinical-button secondary">
+            <i class="bi bi-kanban"></i> 项目列表
+        </a>
+    </div>
+</div>
+
+<!-- 主内容区域容器 -->
+<div class="main-container">
+    <div class="dashboard-container">
+        <!-- 左侧栏：项目详情和活动 -->
+        <div class="dashboard-left">
+        <!-- 项目信息 -->
+        <div class="clinical-info-box">
+            <div class="info-box-title">
+                <i class="bi bi-folder"></i> 项目详情
+            </div>
+            <div class="info-box-content">
+                        <div class="project-header">
+                            <h2>{{ project.name }}</h2>
+                        </div>
+                        <div class="project-description">
+                            <p>{{ project.description or '无项目描述' }}</p>
+                        </div>
+                            </div>
+                            </div>
+
+            <!-- 项目活动 -->
+            <div class="clinical-info-box mt-4">
+                <div class="info-box-title">
+                    <i class="bi bi-activity"></i> 项目活动
+                                </div>
+                <div class="info-box-content">
+                    <!-- 在实际应用中，这里应显示来自数据库的活动记录 -->
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-marker"></div>
+                            <div class="timeline-content">
+                                <h3 class="timeline-title">项目创建</h3>
+                                <p>项目于 {{ project.created_at.strftime('%Y-%m-%d %H:%M') }} 创建</p>
+                            </div>
+                        </div>
+                        <!-- 其他活动项 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 右侧栏：关联数据集 -->
+        <div class="dashboard-right">
+            <div class="clinical-info-box">
+                <div class="info-box-title">
+                    <i class="bi bi-database"></i> 关联数据集
+                </div>
+                <div class="info-box-content">
+                        {% if dataset %}
+                        <div class="dataset-card">
+                            <h4>{{ dataset.name }}</h4>
+                            <div class="dataset-info">
+                                <p><strong>版本:</strong> {{ dataset.version }}</p>
+                                <p><strong>描述:</strong> {{ dataset.description }}</p>
+                                <p><strong>创建日期:</strong> {{ dataset.created_at.strftime('%Y-%m-%d') }}</p>
+                            </div>
+                            <div class="dataset-actions">
+                                <a href="{{ url_for('doctor_view_dataset', dataset_id=dataset.id) }}" class="clinical-button sm">
+                                    <i class="bi bi-search"></i> 查看数据集
+                                </a>
+                                <a href="{{ url_for('doctor_analyze_dataset', dataset_id=dataset.id) }}" class="clinical-button sm secondary">
+                                    <i class="bi bi-bar-chart"></i> 分析数据
+                                </a>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="no-dataset">
+                            <p>此项目未关联任何数据集</p>
+                            <a href="{{ url_for('doctor_edit_project', project_id=project.id) }}" class="clinical-button sm">
+                                <i class="bi bi-link"></i> 添加数据集
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 完结项目确认模态框 -->
+<div class="modal fade" id="completeProjectModal" tabindex="-1" aria-labelledby="completeProjectModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="completeProjectModalLabel">确认完结项目</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>您确定要将项目 "{{ project.name }}" 标记为已完结吗？</p>
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> 完结后的项目将不能再进行编辑，但仍可查看和分析数据。
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <form action="{{ url_for('doctor_edit_project', project_id=project.id, action='complete') }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-success">确认完结</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 删除项目确认模态框 -->
+<div class="modal fade" id="deleteProjectModal" tabindex="-1" aria-labelledby="deleteProjectModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteProjectModalLabel">确认删除项目</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>您确定要删除项目 "{{ project.name }}" 吗？</p>
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i> 警告：此操作不可撤销，项目及相关数据将被永久删除。
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <form action="{{ url_for('doctor_delete_project', project_id=project.id) }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger">确认删除</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* 两栏布局容器 */
+.dashboard-container {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+/* 左侧内容区 */
+.dashboard-left {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* 右侧内容区 */
+.dashboard-right {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    }
+
+/* 响应式布局 */
+@media (max-width: 1200px) {
+    .dashboard-container {
+        grid-template-columns: 3fr 2fr;
+    }
+}
+
+@media (max-width: 992px) {
+    .dashboard-container {
+        grid-template-columns: 1fr;
+}
+}
+
+/* 项目状态标签样式 */
+.project-status {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.project-status.active {
+    background-color: #e1f5fe;
+    color: #0288d1;
+}
+
+.project-status.completed {
+    background-color: #e8f5e9;
+    color: #388e3c;
+}
+
+.project-status.draft {
+    background-color: #fff3e0;
+    color: #f57c00;
+}
+
+/* 快速链接样式 */
+.quick-link.danger {
+    color: #dc3545;
+    background-color: #f8d7da;
+}
+
+.quick-link.danger:hover {
+    background-color: #f5c2c7;
+}
+</style>
+{% endblock %} 

@@ -1,0 +1,300 @@
+{% extends "clinical_base.html" %}
+
+{% block title %}数据源管理 - 医学临床科研专病数据管理平台{% endblock %}
+
+{% block sidebar %}
+<!-- 这里不添加侧边栏内容，以便主内容区域能够占据更多空间 -->
+{% endblock %}
+
+{% block content %}
+<!-- 添加自定义样式 -->
+<style>
+/* 覆盖基础模板中的样式，确保内容居中 */
+.col-md-9.col-lg-10.clinical-content {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+    padding: 15px !important;
+}
+
+/* 隐藏侧边栏 */
+.col-md-3.col-lg-2.clinical-sidebar {
+    display: none !important;
+}
+
+.dashboard-container {
+    width: 90%;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0 20px;
+    box-sizing: border-box;
+    max-width: 1800px;
+}
+
+/* 确保页面内容在任何缩放比例下都居中 */
+@media (min-width: 1200px) {
+    .dashboard-container {
+        width: 90%;
+    }
+}
+
+@media (min-width: 992px) and (max-width: 1199px) {
+    .dashboard-container {
+        width: 95%;
+    }
+}
+
+@media (max-width: 991px) {
+    .dashboard-container {
+        width: 98%;
+    }
+}
+
+.enrollment-bar {
+    display: inline-block;
+    height: 20px;
+    background-color: var(--green-success);
+    border-radius: 3px;
+    text-align: center;
+    line-height: 20px;
+    color: white;
+    font-weight: bold;
+    font-size: 12px;
+    margin-right: 10px;
+}
+.enrollment-bar-semi {
+    background-color: #fd7e14;
+}
+.enrollment-bar-un {
+    background-color: #6c757d;
+}
+.data-source-icon {
+    font-size: 1.2rem;
+    margin-right: 8px;
+    color: #336699;
+}
+.data-source-card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    transition: all 0.3s ease;
+}
+.data-source-card:hover {
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    transform: translateY(-3px);
+}
+.data-source-header {
+    padding: 12px 15px;
+    border-bottom: 1px solid #ddd;
+    background-color: #f8f9fa;
+    border-radius: 8px 8px 0 0;
+    font-weight: bold;
+}
+.data-source-body {
+    padding: 15px;
+}
+.data-type-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    color: white;
+}
+</style>
+
+<div class="dashboard-container">
+    <div class="content-title text-center">
+        数据源管理 <i class="bi bi-database-fill info-icon"></i>
+        <div class="float-end">
+            <a href="{{ url_for('add_data_source') }}" class="clinical-button">
+                <i class="bi bi-plus-circle me-1"></i>添加数据源
+            </a>
+        </div>
+    </div>
+
+    <div class="dashboard-grid">
+        <!-- 数据源展示 -->
+        <div class="clinical-info-box dashboard-box" style="flex: 1 1 100%;">
+            <div class="info-box-title">
+                医疗数据源
+            </div>
+            <div class="info-box-content">
+                {% if sources %}
+                <div class="row">
+                    {% for source in sources %}
+                    <div class="col-md-6 col-lg-3">
+                        <div class="data-source-card">
+                            <div class="data-source-header">
+                                {% if "病历" in source.name %}
+                                    <i class="bi bi-file-earmark-text data-source-icon"></i>
+                                {% elif "患者" in source.name %}
+                                    <i class="bi bi-person-badge data-source-icon"></i>
+                                {% elif "影像" in source.name %}
+                                    <i class="bi bi-image data-source-icon"></i>
+                                {% elif "标准数据集" in source.name %}
+                                    <i class="bi bi-card-checklist data-source-icon"></i>
+                                {% elif "主数据" in source.name or "术语" in source.name %}
+                                    <i class="bi bi-database data-source-icon"></i>
+                                {% elif "科研" in source.name %}
+                                    <i class="bi bi-journal-medical data-source-icon"></i>
+                                {% elif "临床" in source.name %}
+                                    <i class="bi bi-clipboard-pulse data-source-icon"></i>
+                                {% elif "运营" in source.name %}
+                                    <i class="bi bi-graph-up data-source-icon"></i>
+                                {% else %}
+                                    <i class="bi bi-database-fill-gear data-source-icon"></i>
+                                {% endif %}
+                                {{ source.name }}
+                            </div>
+                            <div class="data-source-body">
+                                <p class="small text-muted mb-2">{{ source.description }}</p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        {% if source.source_type == 'structured' %}
+                                            <span class="data-type-badge bg-success">结构化</span>
+                                        {% elif source.source_type == 'semi-structured' %}
+                                            <span class="data-type-badge" style="background-color: #fd7e14;">半结构化</span>
+                                        {% else %}
+                                            <span class="data-type-badge bg-secondary">非结构化</span>
+                                        {% endif %}
+                                        <small class="ms-2">{{ source.format }}</small>
+                                    </div>
+                                    <div>
+                                        <a href="{{ url_for('view_data_source', source_id=source.id) }}" class="btn btn-sm btn-outline-primary">查看</a>
+                                        <a href="{{ url_for('edit_data_source', source_id=source.id) }}" class="btn btn-sm btn-outline-secondary">编辑</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center p-4">
+                    <div class="mb-3">
+                        <i class="bi bi-database-x" style="font-size: 3rem; color: #6c757d;"></i>
+                    </div>
+                    <p>还没有添加数据源</p>
+                    <a href="{{ url_for('add_data_source') }}" class="clinical-button">
+                        <i class="bi bi-plus-circle me-1"></i>添加数据源
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- 数据源类型统计 -->
+        <div class="clinical-info-box dashboard-box">
+            <div class="info-box-title">
+                数据源类型分布
+            </div>
+            <div class="info-box-content">
+                {% set structured_count = sources|selectattr('source_type', 'equalto', 'structured')|list|length %}
+                {% set semi_structured_count = sources|selectattr('source_type', 'equalto', 'semi-structured')|list|length %}
+                {% set unstructured_count = sources|selectattr('source_type', 'equalto', 'unstructured')|list|length %}
+                {% set total_count = sources|length %}
+                
+                {% if total_count > 0 %}
+                    {% set structured_percent = (structured_count / total_count * 100)|round|int %}
+                    {% set semi_structured_percent = (semi_structured_count / total_count * 100)|round|int %}
+                    {% set unstructured_percent = (unstructured_count / total_count * 100)|round|int %}
+                {% else %}
+                    {% set structured_percent = 0 %}
+                    {% set semi_structured_percent = 0 %}
+                    {% set unstructured_percent = 0 %}
+                {% endif %}
+                
+                <div class="enrollment-progress mb-3">
+                    <div class="enrollment-bar" id="structured-bar">
+                        结构化: {{ structured_percent }}%
+                    </div>
+                </div>
+                <div class="enrollment-progress mb-3">
+                    <div class="enrollment-bar enrollment-bar-semi" id="semi-structured-bar">
+                        半结构化: {{ semi_structured_percent }}%
+                    </div>
+                </div>
+                <div class="enrollment-progress mb-3">
+                    <div class="enrollment-bar enrollment-bar-un" id="unstructured-bar">
+                        非结构化: {{ unstructured_percent }}%
+                    </div>
+                </div>
+                
+                <div class="text-center mt-4">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="stat-box">
+                                <div class="stat-value">{{ structured_count }}</div>
+                                <div class="stat-label">结构化数据</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stat-box">
+                                <div class="stat-value">{{ semi_structured_count }}</div>
+                                <div class="stat-label">半结构化数据</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stat-box">
+                                <div class="stat-value">{{ unstructured_count }}</div>
+                                <div class="stat-label">非结构化数据</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 最近添加 -->
+        <div class="clinical-info-box dashboard-box">
+            <div class="info-box-title">
+                最近添加的数据源
+            </div>
+            <div class="info-box-content">
+                {% if recent_sources %}
+                <table class="clinical-table">
+                    <thead>
+                        <tr>
+                            <th>名称</th>
+                            <th>类型</th>
+                            <th>添加时间</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for source in recent_sources %}
+                        <tr>
+                            <td>{{ source.name }}</td>
+                            <td>{{ source.source_type }}</td>
+                            <td>{{ source.created_at.strftime('%Y-%m-%d') }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p class="text-center p-3">暂无数据</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 设置进度条宽度
+        const structuredBar = document.getElementById('structured-bar');
+        const semiStructuredBar = document.getElementById('semi-structured-bar');
+        const unstructuredBar = document.getElementById('unstructured-bar');
+        
+        if (structuredBar) {
+            structuredBar.style.width = '{{ structured_percent }}%';
+        }
+        if (semiStructuredBar) {
+            semiStructuredBar.style.width = '{{ semi_structured_percent }}%';
+        }
+        if (unstructuredBar) {
+            unstructuredBar.style.width = '{{ unstructured_percent }}%';
+        }
+    });
+</script>
+{% endblock %} 

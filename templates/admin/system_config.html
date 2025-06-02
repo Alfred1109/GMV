@@ -1,0 +1,331 @@
+{% extends "clinical_base.html" %}
+
+{% block title %}系统配置 - 医学临床科研专病数据管理平台{% endblock %}
+
+{% block sidebar %}
+<!-- 这里不添加侧边栏内容，以便主内容区域能够占据更多空间 -->
+{% endblock %}
+
+{% block content %}
+<!-- 添加自定义样式 -->
+<style>
+/* 覆盖基础模板中的样式，确保内容居中 */
+.col-md-9.col-lg-10.clinical-content {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+    padding: 15px !important;
+}
+
+/* 隐藏侧边栏 */
+.col-md-3.col-lg-2.clinical-sidebar {
+    display: none !important;
+}
+
+.dashboard-container {
+    width: 90%;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0 20px;
+    box-sizing: border-box;
+    max-width: 1800px;
+}
+
+/* 确保页面内容在任何缩放比例下都居中 */
+@media (min-width: 1200px) {
+    .dashboard-container {
+        width: 90%;
+    }
+}
+
+@media (min-width: 992px) and (max-width: 1199px) {
+    .dashboard-container {
+        width: 95%;
+    }
+}
+
+@media (max-width: 991px) {
+    .dashboard-container {
+        width: 98%;
+    }
+}
+</style>
+
+<div class="dashboard-container">
+    <div class="content-title text-center">
+        系统配置 <i class="bi bi-gear-fill info-icon"></i>
+    </div>
+
+    <div class="dashboard-grid">
+        <!-- 系统基础配置 -->
+        <div class="clinical-info-box dashboard-box">
+            <div class="info-box-title">
+                基础配置
+            </div>
+            <div class="info-box-content">
+                <form id="basicConfigForm" class="p-2">
+                    <div class="mb-3">
+                        <label for="systemName" class="form-label">系统名称</label>
+                        <input type="text" class="form-control" id="systemName" value="滋兰科技医学临床科研专病数据平台">
+                    </div>
+                    <div class="mb-3">
+                        <label for="adminEmail" class="form-label">管理员邮箱</label>
+                        <input type="email" class="form-control" id="adminEmail" value="admin@zltech.com">
+                    </div>
+                    <div class="mb-3">
+                        <label for="dataRetention" class="form-label">数据保留期限（天）</label>
+                        <input type="number" class="form-control" id="dataRetention" value="365">
+                    </div>
+                    <div class="mb-3">
+                        <label for="maxUploadSize" class="form-label">最大上传文件大小（MB）</label>
+                        <input type="number" class="form-control" id="maxUploadSize" value="100">
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="enableNotifications" checked>
+                        <label class="form-check-label" for="enableNotifications">
+                            启用系统通知
+                        </label>
+                    </div>
+                    <button type="submit" class="clinical-button">保存配置</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- 数据仓库配置 -->
+        <div class="clinical-info-box dashboard-box">
+            <div class="info-box-title">
+                数据仓库配置
+            </div>
+            <div class="info-box-content">
+                <form id="warehouseConfigForm" class="p-2">
+                    <div class="mb-3">
+                        <label for="dbConnection" class="form-label">数据库连接</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="dbConnection" value="sqlite:///zl_geniusmedvault.db">
+                            <button class="btn btn-outline-secondary" type="button">测试</button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="backupFrequency" class="form-label">备份频率</label>
+                        <select class="form-select" id="backupFrequency">
+                            <option value="daily">每日</option>
+                            <option value="weekly" selected>每周</option>
+                            <option value="monthly">每月</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="storageLimit" class="form-label">存储限制（GB）</label>
+                        <input type="number" class="form-control" id="storageLimit" value="10">
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="enableCompression" checked>
+                        <label class="form-check-label" for="enableCompression">
+                            启用数据压缩
+                        </label>
+                    </div>
+                    <button type="submit" class="clinical-button">应用设置</button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- 系统状态 -->
+        <div class="clinical-info-box dashboard-box">
+            <div class="info-box-title">
+                系统状态
+            </div>
+            <div class="info-box-content">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span>服务状态</span>
+                    <span class="badge bg-success">运行中</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span>数据库连接</span>
+                    <span class="badge bg-success">正常</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span>缓存服务</span>
+                    <span class="badge bg-success">运行中</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span>文件存储</span>
+                    <span class="badge bg-warning">警告</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span>系统负载</span>
+                    <div class="progress" style="width: 60%;">
+                        <div class="progress-bar" role="progressbar" style="width: 25%;" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">25%</div>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span>内存使用</span>
+                    <div class="progress" style="width: 60%;">
+                        <div class="progress-bar" role="progressbar" style="width: 60%;" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100">60%</div>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span>磁盘使用</span>
+                    <div class="progress" style="width: 60%;">
+                        <div class="progress-bar bg-warning" role="progressbar" style="width: 80%;" aria-valuenow="80" aria-valuemin="0" aria-valuemax="100">80%</div>
+                    </div>
+                </div>
+                <button class="clinical-button" id="refreshStatus">刷新状态</button>
+            </div>
+        </div>
+        
+        <!-- 安全设置 -->
+        <div class="clinical-info-box dashboard-box">
+            <div class="info-box-title">
+                安全设置
+            </div>
+            <div class="info-box-content">
+                <form id="securityConfigForm" class="p-2">
+                    <div class="mb-3">
+                        <label for="sessionTimeout" class="form-label">会话超时（分钟）</label>
+                        <input type="number" class="form-control" id="sessionTimeout" value="30">
+                    </div>
+                    <div class="mb-3">
+                        <label for="passwordPolicy" class="form-label">密码策略</label>
+                        <select class="form-select" id="passwordPolicy">
+                            <option value="low">基础（最少6位）</option>
+                            <option value="medium" selected>中等（最少8位，包含字母和数字）</option>
+                            <option value="high">高强度（最少10位，包含大小写字母、数字和特殊字符）</option>
+                        </select>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="enableTwoFactor">
+                        <label class="form-check-label" for="enableTwoFactor">
+                            启用双重认证
+                        </label>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="ipRestriction">
+                        <label class="form-check-label" for="ipRestriction">
+                            启用IP地址限制
+                        </label>
+                    </div>
+                    <div class="mb-3">
+                        <label for="allowedIPs" class="form-label">允许的IP地址（每行一个）</label>
+                        <textarea class="form-control" id="allowedIPs" rows="3" placeholder="例如: 192.168.1.1" disabled></textarea>
+                    </div>
+                    <button type="submit" class="clinical-button">保存安全设置</button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- 日志设置 -->
+        <div class="clinical-info-box dashboard-box">
+            <div class="info-box-title">
+                日志设置
+            </div>
+            <div class="info-box-content">
+                <form id="logConfigForm" class="p-2">
+                    <div class="mb-3">
+                        <label for="logLevel" class="form-label">日志级别</label>
+                        <select class="form-select" id="logLevel">
+                            <option value="debug">调试</option>
+                            <option value="info" selected>信息</option>
+                            <option value="warning">警告</option>
+                            <option value="error">错误</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="logRetention" class="form-label">日志保留时间（天）</label>
+                        <input type="number" class="form-control" id="logRetention" value="30">
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="enableAuditTrail" checked>
+                        <label class="form-check-label" for="enableAuditTrail">
+                            启用审计跟踪
+                        </label>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="logUserActions" checked>
+                        <label class="form-check-label" for="logUserActions">
+                            记录用户操作
+                        </label>
+                    </div>
+                    <button type="submit" class="clinical-button">应用日志设置</button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- 系统维护 -->
+        <div class="clinical-info-box dashboard-box">
+            <div class="info-box-title">
+                系统维护
+            </div>
+            <div class="info-box-content">
+                <div class="d-grid gap-3 p-2">
+                    <button class="clinical-button" id="backupDatabase">
+                        <i class="bi bi-download me-2"></i>备份数据库
+                    </button>
+                    <button class="clinical-button" id="exportSystemConfig">
+                        <i class="bi bi-file-earmark-arrow-down me-2"></i>导出系统配置
+                    </button>
+                    <button class="clinical-button" id="importSystemConfig">
+                        <i class="bi bi-file-earmark-arrow-up me-2"></i>导入系统配置
+                    </button>
+                    <button class="clinical-button" id="clearCache">
+                        <i class="bi bi-trash me-2"></i>清除系统缓存
+                    </button>
+                    <button class="clinical-button" style="background-color: #dc3545;" id="resetSystem">
+                        <i class="bi bi-exclamation-triangle me-2"></i>重置系统（危险操作）
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 表单提交事件处理
+        document.querySelectorAll('form').forEach(form => {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                alert('设置已保存');
+            });
+        });
+        
+        // IP地址限制复选框事件
+        document.getElementById('ipRestriction').addEventListener('change', function() {
+            document.getElementById('allowedIPs').disabled = !this.checked;
+        });
+        
+        // 刷新状态按钮事件
+        document.getElementById('refreshStatus').addEventListener('click', function() {
+            alert('正在刷新系统状态...');
+        });
+        
+        // 系统维护按钮事件
+        document.getElementById('backupDatabase').addEventListener('click', function() {
+            alert('正在备份数据库...');
+        });
+        
+        document.getElementById('exportSystemConfig').addEventListener('click', function() {
+            alert('正在导出系统配置...');
+        });
+        
+        document.getElementById('importSystemConfig').addEventListener('click', function() {
+            alert('请选择配置文件进行导入...');
+        });
+        
+        document.getElementById('clearCache').addEventListener('click', function() {
+            if (confirm('确定要清除系统缓存吗？')) {
+                alert('系统缓存已清除');
+            }
+        });
+        
+        document.getElementById('resetSystem').addEventListener('click', function() {
+            if (confirm('警告：此操作将重置系统至初始状态，所有数据将丢失！确定要继续吗？')) {
+                if (prompt('请输入管理员密码以确认此操作') === 'admin123') {
+                    alert('系统已成功重置');
+                } else {
+                    alert('密码错误，操作取消');
+                }
+            }
+        });
+    });
+</script>
+{% endblock %} 

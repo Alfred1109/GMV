@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - 医学临床科研专病数据平台</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-container {
+            width: 1200px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            height: 600px;
+        }
+        .login-left {
+            background-color: #3a4e7a;
+            color: white;
+            padding: 3rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+            position: relative;
+            width: 61.8%;
+        }
+        .login-right {
+            width: 38.2%;
+        }
+        .login-left h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            position: relative;
+            z-index: 1;
+        }
+        .login-left p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+            line-height: 1.6;
+            position: relative;
+            z-index: 1;
+        }
+        .login-form {
+            padding: 2rem 2.5rem;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-switch .form-check-input {
+            width: 3em;
+            height: 1.5em;
+        }
+        .form-switch .form-check-input:checked {
+            background-color: #FF8C00;
+            border-color: #FF8C00;
+        }
+        .btn-primary {
+            padding: 0.6rem 0;
+            font-weight: 600;
+            background-color: #FF8C00;
+            border-color: #FF8C00;
+        }
+        .btn-primary:hover {
+            background-color: #e67e00;
+            border-color: #e67e00;
+        }
+        .role-switch {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+        .role-label {
+            font-weight: 500;
+            color: #6c757d;
+        }
+        .role-icons {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        .role-icon {
+            font-size: 1.2rem;
+        }
+        .role-text {
+            font-weight: bold;
+            color: #3a4e7a;
+        }
+        .brand-highlight {
+            color: #FF8C00;
+            font-weight: bold;
+        }
+        .bayesian-surface {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.3;
+            z-index: 0;
+        }
+        #bayesianCanvas {
+            width: 100%;
+            height: 100%;
+        }
+        #captchaCanvas {
+            width: 100%;
+            height: 42px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .captcha-container {
+            position: relative;
+        }
+        .refresh-captcha {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #3a4e7a;
+            font-size: 1.2rem;
+        }
+        .captcha-row {
+            display: flex;
+            gap: 10px;
+        }
+        .captcha-display {
+            flex: 0 0 45%;
+        }
+        .captcha-input {
+            flex: 1;
+        }
+        .login-content {
+            height: 100%;
+        }
+        .login-left-content {
+            position: relative;
+            z-index: 1;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .form-label {
+            margin-bottom: 0.25rem;
+        }
+        .login-header {
+            margin-bottom: 1rem;
+        }
+        .login-footer {
+            margin-top: 0.75rem;
+        }
+        @media (max-width: 992px) {
+            .login-container {
+                width: 95%;
+                max-width: 800px;
+                height: auto;
+            }
+            .login-left, .login-right {
+                width: 100%;
+            }
+            .login-left {
+                padding: 2rem 1.5rem;
+            }
+            .login-form {
+                padding: 1.5rem;
+            }
+        }
+        @media (max-width: 768px) {
+            .login-container {
+                max-width: 450px;
+            }
+            .captcha-row {
+                flex-direction: column;
+                gap: 5px;
+            }
+            .captcha-display, .captcha-input {
+                flex: 1 0 auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container d-flex flex-lg-row flex-column">
+        <div class="login-left">
+            <div class="login-left-content">
+                <div>
+                    <h1><span class="brand-highlight">GeniusMedVault</span><br>医学临床科研专病数据平台</h1>
+                    <p class="mb-4">汇聚多模态医疗数据，打造高质量科研基础</p>
+                </div>
+                <h4>医院、科室、可信数据空间</h4>
+            </div>
+            <div class="bayesian-surface">
+                <canvas id="bayesianCanvas"></canvas>
+            </div>
+        </div>
+        <div class="login-right login-content">
+            <div class="login-form">
+                <h2 class="text-center fs-3 login-header">账号登录</h2>
+                
+                {% with messages = get_flashed_messages() %}
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-danger py-2">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
+                <form method="POST" action="{{ url_for('login') }}">
+                    {{ form.csrf_token }}
+                    
+                    <div class="form-group">
+                        <label for="username" class="form-label">用户名</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-person"></i></span>
+                            {{ form.username(class="form-control", id="username") }}
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="password" class="form-label">密码</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                            {{ form.password(class="form-control", id="password") }}
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="captcha" class="form-label">验证码</label>
+                        <div class="captcha-row">
+                            <div class="captcha-input">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-shield"></i></span>
+                                    <input type="text" class="form-control" id="captchaInput" name="captcha" required placeholder="请输入验证码">
+                                    <input type="hidden" id="captchaValue" name="captchaValue">
+                                </div>
+                            </div>
+                            <div class="captcha-display">
+                                <div class="captcha-container">
+                                    <canvas id="captchaCanvas" title="点击刷新验证码"></canvas>
+                                    <i class="bi bi-arrow-clockwise refresh-captcha" title="刷新验证码"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="role-switch">
+                        <div>
+                            <span class="role-label">登录角色</span>
+                            <div class="role-text" id="roleText">医生</div>
+                        </div>
+                        <div class="role-icons">
+                            <i class="bi bi-person-vcard role-icon" id="doctorIcon"></i>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="roleSwitch" onchange="updateRole()">
+                                {{ form.role(id="roleInput", style="display:none;") }}
+                            </div>
+                            <i class="bi bi-shield-lock role-icon" id="adminIcon"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group mb-0">
+                        <button type="submit" class="btn btn-primary w-100" id="loginBtn">登录</button>
+                    </div>
+                </form>
+                <div class="text-center login-footer">
+                    <small class="text-muted">© 2023 专病数据库. 保留所有权利.GeniusMedVault </small>
+                    <br><small>版本号：V2.5.29.2340</small></br>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script>
+        function updateRole() {
+            const roleSwitch = document.getElementById('roleSwitch');
+            const roleText = document.getElementById('roleText');
+            const roleInput = document.getElementById('roleInput');
+            const doctorIcon = document.getElementById('doctorIcon');
+            const adminIcon = document.getElementById('adminIcon');
+            
+            if (roleSwitch.checked) {
+                roleText.textContent = '管理员';
+                roleInput.value = 'admin';
+                doctorIcon.style.opacity = 0.3;
+                adminIcon.style.opacity = 1;
+            } else {
+                roleText.textContent = '医生';
+                roleInput.value = 'doctor';
+                doctorIcon.style.opacity = 1;
+                adminIcon.style.opacity = 0.3;
+            }
+        }
+        
+        // 初始化状态
+        document.addEventListener('DOMContentLoaded', function() {
+            updateRole();
+            initBayesianSurface();
+            generateCaptcha();
+        });
+
+        // 贝叶斯曲面可视化
+        function initBayesianSurface() {
+            const canvas = document.getElementById('bayesianCanvas');
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(60, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
+            
+            const renderer = new THREE.WebGLRenderer({
+                canvas: canvas,
+                alpha: true,
+                antialias: true
+            });
+            renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+            
+            // 创建贝叶斯曲面
+            const geometry = new THREE.PlaneGeometry(20, 20, 50, 50);
+            const material = new THREE.MeshBasicMaterial({
+                color: 0xFF8C00,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.5
+            });
+            
+            // 设置曲面高度模拟贝叶斯分布
+            const vertices = geometry.attributes.position.array;
+            for (let i = 0; i < vertices.length; i += 3) {
+                const x = vertices[i];
+                const y = vertices[i + 1];
+                // 贝叶斯曲面模拟公式
+                vertices[i + 2] = 2 * Math.exp(-(Math.pow(x - 3, 2) + Math.pow(y, 2)) / 10) 
+                                 + 1.5 * Math.exp(-(Math.pow(x + 3, 2) + Math.pow(y, 2)) / 8);
+            }
+            
+            const surface = new THREE.Mesh(geometry, material);
+            scene.add(surface);
+            
+            camera.position.z = 10;
+            camera.position.y = 5;
+            camera.lookAt(0, 0, 0);
+            
+            function animate() {
+                requestAnimationFrame(animate);
+                surface.rotation.x += 0.003;
+                surface.rotation.y += 0.002;
+                renderer.render(scene, camera);
+            }
+            
+            animate();
+            
+            // 响应窗口大小变化
+            window.addEventListener('resize', function() {
+                renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+                camera.aspect = canvas.clientWidth / canvas.clientHeight;
+                camera.updateProjectionMatrix();
+            });
+        }
+
+        // 验证码功能
+        function generateCaptcha() {
+            const canvas = document.getElementById('captchaCanvas');
+            const ctx = canvas.getContext('2d');
+            const captchaInput = document.getElementById('captchaValue');
+            
+            // 设置canvas大小
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            
+            // 清空画布
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 生成随机4位数字
+            const digits = [];
+            for (let i = 0; i < 4; i++) {
+                digits.push(Math.floor(Math.random() * 10));
+            }
+            
+            // 设置隐藏字段的值
+            captchaInput.value = digits.join('');
+            
+            // 绘制背景
+            ctx.fillStyle = '#f0f0f0';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 添加干扰线
+            for (let i = 0; i < 8; i++) {
+                ctx.strokeStyle = getRandomColor(0.5);
+                ctx.beginPath();
+                ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
+                ctx.bezierCurveTo(
+                    Math.random() * canvas.width, Math.random() * canvas.height,
+                    Math.random() * canvas.width, Math.random() * canvas.height,
+                    Math.random() * canvas.width, Math.random() * canvas.height
+                );
+                ctx.stroke();
+            }
+            
+            // 添加干扰点
+            for (let i = 0; i < 100; i++) {
+                ctx.fillStyle = getRandomColor(0.8);
+                ctx.beginPath();
+                ctx.arc(
+                    Math.random() * canvas.width,
+                    Math.random() * canvas.height,
+                    Math.random() * 2,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+            }
+            
+            // 绘制数字
+            const digitWidth = canvas.width / 5;
+            ctx.textBaseline = 'middle';
+            
+            for (let i = 0; i < digits.length; i++) {
+                const x = digitWidth * (i + 0.8);
+                const y = canvas.height / 2 + (Math.random() * 10 - 5);
+                
+                // 随机旋转角度
+                const rotate = (Math.random() - 0.5) * 0.5;
+                
+                // 随机字体大小
+                const fontSize = 35 + Math.random() * 15;
+                
+                // 随机字体
+                const fonts = ['Arial', 'Georgia', 'Verdana', 'Times New Roman', 'Courier New'];
+                const font = fonts[Math.floor(Math.random() * fonts.length)];
+                
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.rotate(rotate);
+                
+                // 字体设置
+                ctx.font = `bold ${fontSize}px ${font}`;
+                ctx.fillStyle = getRandomColor(1);
+                
+                // 添加文字阴影
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+                ctx.shadowBlur = 5;
+                ctx.shadowOffsetX = 2;
+                ctx.shadowOffsetY = 2;
+                
+                // 绘制变形数字
+                ctx.fillText(digits[i], 0, 0);
+                
+                // 添加描边
+                ctx.strokeStyle = getRandomColor(0.8);
+                ctx.lineWidth = 1;
+                ctx.strokeText(digits[i], 0, 0);
+                
+                ctx.restore();
+            }
+            
+            // 添加波浪扭曲效果
+            applyWaveDistortion(ctx, canvas.width, canvas.height);
+        }
+        
+        // 应用波浪扭曲效果
+        function applyWaveDistortion(ctx, width, height) {
+            const imageData = ctx.getImageData(0, 0, width, height);
+            const pixels = imageData.data;
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            tempCanvas.width = width;
+            tempCanvas.height = height;
+            tempCtx.putImageData(imageData, 0, 0);
+            
+            ctx.clearRect(0, 0, width, height);
+            
+            // 绘制扭曲效果
+            for (let i = 0; i < height; i += 2) {
+                const offsetX = Math.sin(i * 0.1) * 3;
+                const offsetWidth = width - Math.abs(offsetX);
+                ctx.drawImage(
+                    tempCanvas,
+                    0, i, width, 2,
+                    offsetX, i, offsetWidth, 2
+                );
+            }
+        }
+        
+        // 生成随机颜色
+        function getRandomColor(alpha) {
+            const r = Math.floor(Math.random() * 150);
+            const g = Math.floor(Math.random() * 150);
+            const b = Math.floor(Math.random() * 150);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+        
+        // 点击验证码刷新
+        document.getElementById('captchaCanvas').addEventListener('click', generateCaptcha);
+        document.querySelector('.refresh-captcha').addEventListener('click', generateCaptcha);
+        
+        // 表单提交前验证
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const captchaInput = document.getElementById('captchaInput');
+            const captchaValue = document.getElementById('captchaValue').value;
+            
+            if (captchaInput.value !== captchaValue) {
+                e.preventDefault();
+                alert('验证码错误，请重新输入');
+                generateCaptcha();
+                captchaInput.value = '';
+                captchaInput.focus();
+            }
+        });
+    </script>
+</body>
+</html> 

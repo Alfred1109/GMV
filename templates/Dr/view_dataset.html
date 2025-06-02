@@ -1,0 +1,5030 @@
+{% extends "clinical_base.html" %}
+
+{% block title %}数据集详情 - 医学临床科研专病数据管理平台{% endblock %}
+
+{% block content %}
+<!-- 顶部导航栏 -->
+<div class="top-navigation">
+    <div class="top-nav-left">
+        <div class="content-title">
+            数据集详情 <i class="bi bi-database-fill info-icon"></i>
+        </div>
+    </div>
+    <div class="top-nav-right">
+        <a href="{{ url_for('doctor_my_datasets') }}" class="back-button">
+            <i class="bi bi-arrow-left"></i> 返回数据集列表
+        </a>
+    </div>
+</div>
+
+<!-- 主内容区域 -->
+<div class="main-container">
+    <div class="dashboard-container">
+        <!-- 数据集基本信息卡片 -->
+        <div class="clinical-info-box">
+            <div class="info-box-title">
+                <i class="bi bi-info-circle"></i> 数据集基本信息
+            </div>
+            <div class="info-box-content">
+                <div class="dataset-header">
+                    <div class="dataset-title">
+                        <h2>{{ dataset.name }}</h2>
+                        <span class="dataset-version">v{{ dataset.version }}</span>
+                    </div>
+                    <div class="dataset-actions">
+                        <a href="{{ url_for('doctor_analyze_dataset', dataset_id=dataset.id) }}" class="clinical-button">
+                            <i class="bi bi-graph-up"></i> 分析数据集
+                        </a>
+                        <a href="/doctor/dataset/{{ dataset.id }}/collect_data" class="clinical-button" id="collectDataBtn">
+                            <i class="bi bi-clipboard-plus"></i> 录入数据
+                        </a>
+                        <button class="clinical-button clinical-button-danger" id="deleteDatasetBtn">
+                            <i class="bi bi-trash"></i> 删除数据集
+                        </button>
+                    </div>
+                </div>
+                <div class="dataset-metadata">
+                    <div class="metadata-item">
+                        <i class="bi bi-calendar3"></i>
+                        <span>创建日期: {{ dataset.created_at.strftime('%Y-%m-%d') }}</span>
+                    </div>
+                    <div class="metadata-item">
+                        <i class="bi bi-person"></i>
+                        <span>创建者: {{ dataset.creator.username if dataset.creator else '未知' }}</span>
+                    </div>
+                    <div class="metadata-item">
+                        <i class="bi bi-tag"></i>
+                        <span>类型: {{ dataset.type or '通用' }}</span>
+                    </div>
+                    <div class="metadata-item">
+                        <i class="bi bi-shield-lock"></i>
+                        <span>隐私级别: {{ dataset.privacy_level or 'public' }}</span>
+                    </div>
+                    <div class="metadata-item">
+                        <i class="bi bi-files"></i>
+                        <span>数据量: {{ dataset.size if dataset.size else '0' }} 条</span>
+                    </div>
+                </div>
+                <div class="dataset-description">
+                    <h5>数据集描述</h5>
+                    <p>{{ dataset.description|default('该数据集暂无描述信息。', true) }}</p>
+                </div>
+            </div>
+        </div>
+        <!-- 数据字段分布与统计 -->
+        <div class="clinical-info-box">
+            <div class="info-box-title">
+                <i class="bi bi-bar-chart-line"></i> 数据字段分布与统计
+                <div class="title-actions">
+                    <button class="btn btn-sm btn-outline-primary" id="viewAllDataBtn">
+                        <i class="bi bi-eye"></i> 全部数据
+                    </button>
+                </div>
+            </div>
+            <div class="info-box-content">
+                <div class="field-distribution">
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="field-stats-card">
+                                <h6 class="field-stats-title">字段完整度分布</h6>
+                                <div class="field-stats-chart-container">
+                                    <div class="field-stats-chart" id="completenessChart">
+                                        <div class="loading-indicator">
+                                            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                                <span class="visually-hidden">加载中...</span>
+                                            </div>
+                                            <p class="mt-2 small">加载字段统计...</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <style>
+        .field-stats-card {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            height: 100%;
+            border: 1px solid #eee;
+        }
+        
+        .field-stats-title {
+            font-size: 16px;
+            font-weight: 500;
+            color: #444;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .field-stats-title::before {
+            content: '';
+            display: inline-block;
+            width: 4px;
+            height: 16px;
+            background: #4a89dc;
+            margin-right: 8px;
+            border-radius: 2px;
+        }
+        
+        .field-stats-chart-container {
+            position: relative;
+            width: 100%;
+            overflow: hidden;
+        }
+        
+        .field-stats-chart {
+            height: 400px;
+            max-height: 600px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-right: 5px;
+        }
+        
+        .field-stats-chart::-webkit-scrollbar {
+            width: 5px;
+        }
+        
+        .field-stats-chart::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 5px;
+        }
+        
+        .field-stats-chart::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 5px;
+        }
+        
+        .field-stats-chart::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a1;
+        }
+        
+        .chart-placeholder {
+            width: 100%;
+            height: 100%;
+            background: #f9f9f9;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        
+        .chart-description {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #4a89dc;
+            font-size: 13px;
+            color: #555;
+            line-height: 1.5;
+        }
+        
+        .chart-description p {
+            margin-bottom: 8px;
+        }
+        
+        .chart-description strong {
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .chart-description .text-success {
+            color: #4CAF50 !important;
+            font-weight: 500;
+        }
+        
+        .chart-description .text-danger {
+            color: #F44336 !important;
+            font-weight: 500;
+        }
+        
+        .chart-description .text-warning {
+            color: #FFC107 !important;
+        }
+        
+        .chart-description .text-info {
+            color: #2196F3 !important;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .stats-summary {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 15px;
+            text-align: center;
+            flex-wrap: wrap;
+        }
+        
+        .stats-summary .stat-item {
+            padding: 10px 15px;
+            min-width: 100px;
+        }
+        
+        .stats-summary .stat-value {
+            font-size: 22px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .stats-summary .stat-label {
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .completeness-legend {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed #ddd;
+        }
+        
+        .completeness-legend .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+        }
+        
+        .completeness-legend .legend-color {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+        
+        .completeness-legend .legend-text {
+            color: #555;
+        }
+        
+        .spin {
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .stats-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            height: 100%;
+            transition: all 0.2s;
+            border: 1px solid #eee;
+        }
+        
+        .stats-card:hover {
+            background: #f0f0f0;
+            transform: translateY(-2px);
+        }
+        
+        .stats-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: #4a89dc;
+        }
+        
+        .stats-label {
+            font-size: 13px;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .loading-indicator {
+            text-align: center;
+        }
+        </style>
+            <!-- 数据字段分组信息 -->
+            <div class="clinical-info-box">
+                <div class="info-box-title">
+                    <i class="bi bi-list-columns"></i> 数据字段分组
+                </div>
+                <div class="info-box-content">
+                    <div id="fieldGroupsContainer">
+                        <div class="loading-indicator text-center py-4">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                <span class="visually-hidden">加载中...</span>
+                            </div>
+                            <p class="mt-2 small">加载字段分组数据...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <style>
+            /* 字段分组表格样式 */
+            .field-groups-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 12px;
+            }
+            
+            .field-groups-table th {
+                background-color: #f8f9fa;
+                color: #495057;
+                font-weight: 500;
+                text-align: left;
+                padding: 6px 10px;
+                border-bottom: 2px solid #dee2e6;
+            }
+            
+            .field-groups-table td {
+                padding: 6px 10px;
+                border-bottom: 1px solid #e9ecef;
+                vertical-align: middle;
+            }
+            
+            .field-groups-table tr:hover {
+                background-color: #f8f9fa;
+            }
+            
+            .field-group-name {
+                font-weight: 500;
+                color: #333;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            
+            .field-group-name i {
+                color: #6699CC;
+                font-size: 14px;
+            }
+            
+            .field-count {
+                font-size: 12px;
+                color: #6c757d;
+                background: #f8f9fa;
+                padding: 2px 8px;
+                border-radius: 12px;
+                display: inline-block;
+            }
+            
+            .missing-rate {
+                font-weight: 500;
+                text-align: center;
+                padding: 2px 6px;
+                border-radius: 3px;
+                display: inline-block;
+                min-width: 60px;
+            }
+            
+            .missing-rate.low {
+                background-color: #d4edda;
+                color: #155724;
+            }
+            
+            .missing-rate.medium {
+                background-color: #fff3cd;
+                color: #856404;
+            }
+            
+            .missing-rate.high {
+                background-color: #f8d7da;
+                color: #721c24;
+            }
+            
+            .empty-field-groups {
+                text-align: center;
+                padding: 20px;
+                color: #6c757d;
+            }
+
+            .empty-field-groups .empty-icon {
+                font-size: 40px;
+                color: #dee2e6;
+                margin-bottom: 10px;
+            }
+            </style>    
+        <div class="two-columns">
+            <!-- 数据源信息 -->
+            <div class="clinical-info-box">
+                <div class="info-box-title">
+                    <i class="bi bi-folder2-open"></i> 数据来源
+                </div>
+                <div class="info-box-content">
+                    {% if sources and sources|length > 0 %}
+                    <div class="data-sources-list">
+                        {% for source in sources %}
+                        <div class="data-source-item">
+                            <div class="source-icon">
+                                {% if source.type == 'upload' %}
+                                <i class="bi bi-file-earmark-arrow-up"></i>
+                                {% elif source.type == 'import' %}
+                                <i class="bi bi-database-add"></i>
+                                {% elif source.type == 'self_collect' %}
+                                <i class="bi bi-clipboard-data"></i>
+                                {% else %}
+                                <i class="bi bi-file-earmark"></i>
+                                {% endif %}
+                            </div>
+                            <div class="source-details">
+                                <div class="source-name">{{ source.name }}</div>
+                                <div class="source-meta">
+                                    <span>{{ source.date.strftime('%Y-%m-%d') if source.date else '' }}</span>
+                                    <span>{{ source.size }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="empty-sources">
+                        <div class="empty-icon">
+                            <i class="bi bi-folder2-open"></i>
+                        </div>
+                        <div>暂无数据源信息</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+
+
+            <!-- 数据质量指标 -->
+            <div class="clinical-info-box">
+                <div class="info-box-title">
+                    <i class="bi bi-check2-circle"></i> 数据质量指标
+                </div>
+                <div class="info-box-content">
+                    <div class="quality-metrics">
+                        <div class="quality-metric-item">
+                            <div class="metric-label">完整性</div>
+                            <div class="metric-value">
+                                <div class="progress">
+                                    <div class="progress-bar bg-success" role="progressbar" style="width: 85%;" aria-valuenow="85" aria-valuemin="0" aria-valuemax="100">85%</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="quality-metric-item">
+                            <div class="metric-label">一致性</div>
+                            <div class="metric-value">
+                                <div class="progress">
+                                    <div class="progress-bar bg-info" role="progressbar" style="width: 92%;" aria-valuenow="92" aria-valuemin="0" aria-valuemax="100">92%</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="quality-metric-item">
+                            <div class="metric-label">准确性</div>
+                            <div class="metric-value">
+                                <div class="progress">
+                                    <div class="progress-bar bg-primary" role="progressbar" style="width: 78%;" aria-valuenow="78" aria-valuemin="0" aria-valuemax="100">78%</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="quality-metric-item">
+                            <div class="metric-label">时效性</div>
+                            <div class="metric-value">
+                                <div class="progress">
+                                    <div class="progress-bar bg-warning" role="progressbar" style="width: 60%;" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100">60%</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="quality-note mt-2">
+                        <small>* 数据质量评估基于系统自动分析，仅供参考</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+
+        <!-- 应用场景与关联项目 -->
+        <div class="two-columns">
+            <!-- 应用场景 -->
+            <div class="clinical-info-box">
+                <div class="info-box-title">
+                    <i class="bi bi-clipboard-data"></i> 应用场景
+                </div>
+                <div class="info-box-content">
+                    <div class="usage-scenarios">
+                        <div class="scenario-item">
+                            <div class="scenario-icon">
+                                <i class="bi bi-bar-chart-line"></i>
+                            </div>
+                            <div class="scenario-content">
+                                <h5>统计分析</h5>
+                                <p>基于该数据集进行统计描述、假设检验和相关性分析。</p>
+                            </div>
+                        </div>
+                        <div class="scenario-item">
+                            <div class="scenario-icon">
+                                <i class="bi bi-graph-up-arrow"></i>
+                            </div>
+                            <div class="scenario-content">
+                                <h5>预测模型</h5>
+                                <p>构建预测模型评估临床风险、预后和治疗效果。</p>
+                            </div>
+                        </div>
+                        <div class="scenario-item">
+                            <div class="scenario-icon">
+                                <i class="bi bi-bezier2"></i>
+                            </div>
+                            <div class="scenario-content">
+                                <h5>临床决策支持</h5>
+                                <p>为临床诊疗决策提供数据支持和辅助分析。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 关联项目 -->
+            <div class="clinical-info-box">
+                <div class="info-box-title">
+                    <i class="bi bi-link-45deg"></i> 关联项目
+                    <div class="title-actions">
+                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#linkProjectModal">
+                            <i class="bi bi-plus"></i> 关联项目
+                        </button>
+                    </div>
+                </div>
+                <div class="info-box-content">
+                    {% if dataset.linked_projects and dataset.linked_projects|length > 0 %}
+                        <div class="linked-projects-list">
+                            {% for project in dataset.linked_projects %}
+                                <div class="linked-project-item">
+                                    <div class="project-icon">
+                                        <i class="bi bi-folder"></i>
+                                    </div>
+                                    <div class="project-details">
+                                        <a href="{{ url_for('doctor_view_project', project_id=project.id) }}" class="project-name">{{ project.name }}</a>
+                                        <div class="project-meta">
+                                            <span>{{ project.date.strftime('%Y-%m-%d') if project.date else '' }}</span>
+                                            <span>{{ project.status }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty-linked-projects">
+                            <div class="empty-icon">
+                                <i class="bi bi-folder"></i>
+                            </div>
+                            <div>暂无关联项目</div>
+                            <div class="empty-subtext">点击"关联项目"按钮添加</div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 关联项目模态框 -->
+<div class="modal fade" id="linkProjectModal" tabindex="-1" aria-labelledby="linkProjectModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="linkProjectModalLabel">关联项目</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="selectProject" class="form-label">选择要关联的项目</label>
+                    <select class="form-select" id="selectProject">
+                        <option value="" selected disabled>选择项目</option>
+                        <option value="1">医学影像AI辅助诊断</option>
+                        <option value="2">高血压患者临床特征分析</option>
+                        <option value="3">糖尿病预后因素研究</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="linkPurpose" class="form-label">关联目的</label>
+                    <select class="form-select" id="linkPurpose">
+                        <option value="analysis">数据分析</option>
+                        <option value="reference">参考对照</option>
+                        <option value="training">模型训练</option>
+                        <option value="validation">模型验证</option>
+                        <option value="other">其他</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary">确认关联</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 数据录入模态框 -->
+<div class="modal fade" id="dataEntryModal" tabindex="-1" aria-labelledby="dataEntryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title" id="dataEntryModalLabel">
+                    <i class="bi bi-clipboard-plus"></i> {{ dataset.name }} - 数据录入
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="loading-spinner text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">加载中...</span>
+                    </div>
+                    <p class="mt-2">正在加载字段信息...</p>
+                </div>
+                <form id="dataEntryForm" class="d-none">
+                    <input type="hidden" name="dataset_id" value="{{ dataset.id }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    
+                    <!-- 表单说明 -->
+                    <div class="form-intro mb-3 p-3 bg-light rounded border-start border-4 border-primary">
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="bi bi-info-circle-fill text-primary me-2"></i>
+                            <h6 class="mb-0">表单填写说明</h6>
+                        </div>
+                        <p class="mb-1 small">请填写以下字段的数据，标记 <span class="text-danger">*</span> 的字段为必填项。</p>
+                        <p class="mb-0 small text-danger"><i class="bi bi-exclamation-triangle-fill"></i> 提交前请至少填写一项数据，否则表单无法保存。</p>
+                    </div>
+                    
+                    <!-- 字段分组导航 -->
+                    <div class="field-groups-nav mb-3 sticky-top bg-white py-2 border-bottom" style="top: 0; z-index: 1000;">
+                        <ul class="nav nav-pills nav-fill field-nav" id="fieldGroupsNav">
+                            <!-- 导航标签将由JavaScript动态填充 -->
+                        </ul>
+                    </div>
+                    
+                    <div id="formFields" class="form-fields-container">
+                        <!-- 表单字段将由JavaScript动态填充 -->
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer d-flex justify-content-between">
+                <div>
+                    <span class="text-muted small"><i class="bi bi-asterisk text-danger"></i> 表示必填字段</span>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="saveDataBtn">
+                        <i class="bi bi-check-lg"></i> 保存数据
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* 数据录入模态框样式 */
+#dataEntryModal .modal-dialog {
+    max-width: 800px;
+    max-height: 90vh;
+}
+
+#dataEntryModal .modal-content {
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+#dataEntryModal .modal-header {
+    border-bottom: 1px solid #eaeaea;
+    padding: 0.8rem 1rem;
+}
+
+#dataEntryModal .modal-body {
+    padding: 1.25rem;
+    max-height: calc(90vh - 130px);
+    overflow-y: auto;
+}
+
+#dataEntryModal .form-fields-container {
+    padding-bottom: 1rem;
+}
+
+/* 字段分组导航样式 */
+.field-groups-nav {
+    overflow-x: auto;
+    white-space: nowrap;
+    padding: 0.5rem 0;
+    margin: 0 -1.25rem;
+    padding: 0.5rem 1.25rem;
+}
+
+.field-groups-nav::-webkit-scrollbar {
+    height: 4px;
+}
+
+.field-groups-nav::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.field-groups-nav::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.field-nav .nav-link {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.875rem;
+    border-radius: 50rem;
+    margin: 0 0.2rem;
+    white-space: nowrap;
+    color: #495057;
+}
+
+.field-nav .nav-link.active {
+    background-color: #4a89dc;
+    color: white;
+}
+
+.field-nav .nav-link .badge {
+    margin-left: 5px;
+}
+
+/* 字段组样式 */
+.field-group {
+    background-color: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.field-group-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.field-group-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #e7f0ff;
+    color: #4a89dc;
+    border-radius: 6px;
+    margin-right: 10px;
+}
+
+.field-group-title {
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin: 0;
+    color: #333;
+}
+
+.field-group-description {
+    color: #6c757d;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+/* 表单控件样式 */
+.form-field {
+    margin-bottom: 1.25rem;
+    position: relative;
+}
+
+.form-field:last-child {
+    margin-bottom: 0;
+}
+
+.form-field-label {
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: #495057;
+    display: flex;
+    align-items: center;
+}
+
+.form-field-required {
+    color: #dc3545;
+    margin-left: 4px;
+}
+
+.form-field-description {
+    font-size: 0.8125rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+    margin-bottom: 0.5rem;
+}
+
+.form-field-help {
+    font-size: 0.75rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #4a89dc;
+    box-shadow: 0 0 0 0.2rem rgba(74, 137, 220, 0.25);
+}
+
+.form-control.is-valid, .form-select.is-valid {
+    border-color: #28a745;
+    padding-right: calc(1.5em + 0.75rem);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%2328a745' d='M2.3 6.73L.6 4.53c-.4-1.04.46-1.4 1.1-.8l1.1 1.4 3.4-3.8c.6-.63 1.6-.27 1.2.7l-4 4.6c-.43.5-.8.4-1.1.1z'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right calc(0.375em + 0.1875rem) center;
+    background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+}
+
+.form-control.is-invalid, .form-select.is-invalid {
+    border-color: #dc3545;
+    padding-right: calc(1.5em + 0.75rem);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right calc(0.375em + 0.1875rem) center;
+    background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+}
+
+/* 单选按钮和复选框样式 */
+.form-check-input:checked {
+    background-color: #4a89dc;
+    border-color: #4a89dc;
+}
+
+/* 表单分隔线 */
+.form-divider {
+    height: 1px;
+    background-color: #e9ecef;
+    margin: 1.5rem 0;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    #dataEntryModal .modal-dialog {
+        margin: 0.5rem;
+        max-width: calc(100% - 1rem);
+    }
+    
+    .field-group {
+        padding: 1rem;
+    }
+}
+</style>
+
+<script>
+// 在现有脚本中添加以下函数
+
+// 渲染表单字段 - 优化版
+function renderFormFields(fields) {
+    const formFields = document.getElementById('formFields');
+    const fieldGroupsNav = document.getElementById('fieldGroupsNav');
+    
+    if (!formFields || !fieldGroupsNav) {
+        console.error('找不到表单字段容器或导航元素');
+        return;
+    }
+    
+    formFields.innerHTML = '';
+    fieldGroupsNav.innerHTML = '';
+    
+    if (!fields || fields.length === 0) {
+        formFields.innerHTML = '<div class="alert alert-warning">未找到自定义字段信息</div>';
+        return;
+    }
+    
+    // 对字段进行分组
+    const fieldGroups = organizeFieldsIntoGroups(fields);
+    
+    // 创建导航标签
+    fieldGroups.forEach((group, index) => {
+        const navItem = document.createElement('li');
+        navItem.className = 'nav-item';
+        
+        const navLink = document.createElement('a');
+        navLink.className = 'nav-link ' + (index === 0 ? 'active' : '');
+        navLink.href = '#fieldGroup' + index;
+        navLink.setAttribute('data-bs-toggle', 'pill');
+        navLink.setAttribute('role', 'tab');
+        
+        // 计算必填字段数量
+        const requiredCount = group.fields.filter(field => field.required).length;
+        
+        navLink.innerHTML = `
+            ${group.icon} ${group.name}
+            ${requiredCount > 0 ? `<span class="badge bg-danger">${requiredCount}</span>` : ''}
+        `;
+        
+        navItem.appendChild(navLink);
+        fieldGroupsNav.appendChild(navItem);
+    });
+    
+    // 创建字段组
+    fieldGroups.forEach((group, index) => {
+        const fieldGroup = document.createElement('div');
+        fieldGroup.className = 'field-group tab-pane fade ' + (index === 0 ? 'show active' : '');
+        fieldGroup.id = 'fieldGroup' + index;
+        fieldGroup.setAttribute('role', 'tabpanel');
+        
+        // 创建字段组标题
+        const groupHeader = document.createElement('div');
+        groupHeader.className = 'field-group-header';
+        groupHeader.innerHTML = `
+            <div class="field-group-icon">${group.icon}</div>
+            <div>
+                <h5 class="field-group-title">${group.name}</h5>
+                ${group.description ? `<div class="field-group-description">${group.description}</div>` : ''}
+            </div>
+        `;
+        fieldGroup.appendChild(groupHeader);
+        
+        // 添加字段到组
+        group.fields.forEach(field => {
+            const formField = createFormField(field);
+            fieldGroup.appendChild(formField);
+        });
+        
+        formFields.appendChild(fieldGroup);
+    });
+    
+    // 初始化Bootstrap标签页
+    const triggerTabList = [].slice.call(document.querySelectorAll('#fieldGroupsNav .nav-link'));
+    triggerTabList.forEach(function (triggerEl) {
+        const tabTrigger = new bootstrap.Tab(triggerEl);
+        
+        triggerEl.addEventListener('click', function (event) {
+            event.preventDefault();
+            tabTrigger.show();
+        });
+    });
+    
+    // 隐藏加载器
+    const loadingSpinner = document.querySelector('.loading-spinner');
+    if (loadingSpinner) {
+        loadingSpinner.classList.add('d-none');
+    }
+    
+    // 显示表单
+    const dataEntryForm = document.getElementById('dataEntryForm');
+    if (dataEntryForm) {
+        dataEntryForm.classList.remove('d-none');
+    }
+}
+
+// 将字段组织成分组
+function organizeFieldsIntoGroups(fields) {
+    // 检查字段是否已有分组信息
+    const hasGroups = fields.some(field => field.group);
+    
+    if (hasGroups) {
+        // 按现有分组组织字段
+        const groupMap = {};
+        
+        fields.forEach(field => {
+            const groupName = field.group || '基本信息';
+            if (!groupMap[groupName]) {
+                groupMap[groupName] = {
+                    name: groupName,
+                    icon: getGroupIcon(groupName),
+                    description: '',
+                    fields: []
+                };
+            }
+            groupMap[groupName].fields.push(field);
+        });
+        
+        return Object.values(groupMap);
+    } else {
+        // 根据字段类型和用途自动分组
+        const basicFields = [];
+        const medicalFields = [];
+        const diagnosisFields = [];
+        const treatmentFields = [];
+        const followupFields = [];
+        
+        fields.forEach(field => {
+            const name = field.name.toLowerCase();
+            
+            if (name.includes('诊断') || name.includes('症状') || name.includes('检查') || 
+                name.includes('检验') || name.includes('影像')) {
+                diagnosisFields.push(field);
+            } else if (name.includes('治疗') || name.includes('用药') || name.includes('手术') || 
+                      name.includes('干预') || name.includes('疗程')) {
+                treatmentFields.push(field);
+            } else if (name.includes('随访') || name.includes('复查') || name.includes('预后') || 
+                      name.includes('转归')) {
+                followupFields.push(field);
+            } else if (name.includes('病史') || name.includes('既往史') || name.includes('家族史') || 
+                      name.includes('过敏史') || name.includes('病理') || name.includes('医学')) {
+                medicalFields.push(field);
+            } else {
+                basicFields.push(field);
+            }
+        });
+        
+        const groups = [];
+        
+        if (basicFields.length > 0) {
+            groups.push({
+                name: '基本信息',
+                icon: '<i class="bi bi-person-vcard"></i>',
+                description: '患者基本资料',
+                fields: basicFields
+            });
+        }
+        
+        if (medicalFields.length > 0) {
+            groups.push({
+                name: '病史资料',
+                icon: '<i class="bi bi-journal-medical"></i>',
+                description: '患者病史与既往史信息',
+                fields: medicalFields
+            });
+        }
+        
+        if (diagnosisFields.length > 0) {
+            groups.push({
+                name: '诊断检查',
+                icon: '<i class="bi bi-clipboard2-pulse"></i>',
+                description: '诊断结果与检查数据',
+                fields: diagnosisFields
+            });
+        }
+        
+        if (treatmentFields.length > 0) {
+            groups.push({
+                name: '治疗信息',
+                icon: '<i class="bi bi-capsule"></i>',
+                description: '治疗方案与用药记录',
+                fields: treatmentFields
+            });
+        }
+        
+        if (followupFields.length > 0) {
+            groups.push({
+                name: '随访记录',
+                icon: '<i class="bi bi-calendar-check"></i>',
+                description: '随访与预后数据',
+                fields: followupFields
+            });
+        }
+        
+        // 如果没有任何分组，创建一个默认分组
+        if (groups.length === 0) {
+            groups.push({
+                name: '数据字段',
+                icon: '<i class="bi bi-card-list"></i>',
+                description: '所有数据字段',
+                fields: fields
+            });
+        }
+        
+        return groups;
+    }
+}
+
+// 获取分组图标
+function getGroupIcon(groupName) {
+    const name = groupName.toLowerCase();
+    
+    if (name.includes('基本') || name.includes('患者')) {
+        return '<i class="bi bi-person-vcard"></i>';
+    } else if (name.includes('诊断') || name.includes('检查')) {
+        return '<i class="bi bi-clipboard2-pulse"></i>';
+    } else if (name.includes('治疗') || name.includes('用药')) {
+        return '<i class="bi bi-capsule"></i>';
+    } else if (name.includes('随访') || name.includes('预后')) {
+        return '<i class="bi bi-calendar-check"></i>';
+    } else if (name.includes('病史') || name.includes('既往')) {
+        return '<i class="bi bi-journal-medical"></i>';
+    } else if (name.includes('实验室') || name.includes('检验')) {
+        return '<i class="bi bi-eyedropper"></i>';
+    } else if (name.includes('影像') || name.includes('图像')) {
+        return '<i class="bi bi-image-alt"></i>';
+    } else if (name.includes('手术')) {
+        return '<i class="bi bi-scissors"></i>';
+    } else {
+        return '<i class="bi bi-card-list"></i>';
+    }
+}
+
+// 创建表单字段
+function createFormField(field) {
+    const formField = document.createElement('div');
+    formField.className = 'form-field';
+    
+    // 创建标签
+    const label = document.createElement('label');
+    label.className = 'form-field-label';
+    label.htmlFor = `field_${field.name}`;
+    label.innerHTML = `${field.name}${field.required ? '<span class="form-field-required">*</span>' : ''}`;
+    formField.appendChild(label);
+    
+    // 添加字段描述
+    if (field.description) {
+        const description = document.createElement('div');
+        description.className = 'form-field-description';
+        description.textContent = field.description;
+        formField.appendChild(description);
+    }
+    
+    // 创建输入控件
+    let input;
+    
+    switch (field.type) {
+        case 'text':
+            input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'form-control';
+            input.placeholder = `请输入${field.name}`;
+            break;
+        case 'textarea':
+            input = document.createElement('textarea');
+            input.className = 'form-control';
+            input.placeholder = `请输入${field.name}`;
+            input.rows = 3;
+            break;
+        case 'number':
+            input = document.createElement('input');
+            input.type = 'number';
+            input.className = 'form-control';
+            input.placeholder = `请输入${field.name}`;
+            if (field.min !== undefined) input.min = field.min;
+            if (field.max !== undefined) input.max = field.max;
+            if (field.step !== undefined) input.step = field.step;
+            break;
+        case 'date':
+            input = document.createElement('input');
+            input.type = 'date';
+            input.className = 'form-control';
+            break;
+        case 'time':
+            input = document.createElement('input');
+            input.type = 'time';
+            input.className = 'form-control';
+            break;
+        case 'datetime':
+            input = document.createElement('input');
+            input.type = 'datetime-local';
+            input.className = 'form-control';
+            break;
+        case 'select':
+            input = document.createElement('select');
+            input.className = 'form-select';
+            
+            // 添加默认选项
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = `-- 请选择${field.name} --`;
+            defaultOption.selected = true;
+            input.appendChild(defaultOption);
+            
+            // 添加选项
+            if (field.options && field.options.length > 0) {
+                field.options.forEach(option => {
+                    const optionEl = document.createElement('option');
+                    optionEl.value = option;
+                    optionEl.textContent = option;
+                    input.appendChild(optionEl);
+                });
+            }
+            break;
+        case 'radio':
+            input = document.createElement('div');
+            input.className = 'form-field-options';
+            
+            if (field.options && field.options.length > 0) {
+                field.options.forEach((option, i) => {
+                    const radioContainer = document.createElement('div');
+                    radioContainer.className = 'form-check form-check-inline';
+                    
+                    const radio = document.createElement('input');
+                    radio.type = 'radio';
+                    radio.className = 'form-check-input';
+                    radio.name = `field_${field.name}`;
+                    radio.id = `field_${field.name}_${i}`;
+                    radio.value = option;
+                    radio.required = field.required;
+                    
+                    const radioLabel = document.createElement('label');
+                    radioLabel.className = 'form-check-label';
+                    radioLabel.htmlFor = `field_${field.name}_${i}`;
+                    radioLabel.textContent = option;
+                    
+                    radioContainer.appendChild(radio);
+                    radioContainer.appendChild(radioLabel);
+                    input.appendChild(radioContainer);
+                });
+            } else {
+                // 默认是/否选项
+                const options = ['是', '否'];
+                options.forEach((option, i) => {
+                    const radioContainer = document.createElement('div');
+                    radioContainer.className = 'form-check form-check-inline';
+                    
+                    const radio = document.createElement('input');
+                    radio.type = 'radio';
+                    radio.className = 'form-check-input';
+                    radio.name = `field_${field.name}`;
+                    radio.id = `field_${field.name}_${i}`;
+                    radio.value = option;
+                    radio.required = field.required;
+                    
+                    const radioLabel = document.createElement('label');
+                    radioLabel.className = 'form-check-label';
+                    radioLabel.htmlFor = `field_${field.name}_${i}`;
+                    radioLabel.textContent = option;
+                    
+                    radioContainer.appendChild(radio);
+                    radioContainer.appendChild(radioLabel);
+                    input.appendChild(radioContainer);
+                });
+            }
+            break;
+        case 'checkbox':
+            input = document.createElement('div');
+            input.className = 'form-field-options';
+            
+            if (field.options && field.options.length > 0) {
+                field.options.forEach((option, i) => {
+                    const checkContainer = document.createElement('div');
+                    checkContainer.className = 'form-check';
+                    
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'form-check-input';
+                    checkbox.name = `field_${field.name}[]`;
+                    checkbox.id = `field_${field.name}_${i}`;
+                    checkbox.value = option;
+                    
+                    const checkLabel = document.createElement('label');
+                    checkLabel.className = 'form-check-label';
+                    checkLabel.htmlFor = `field_${field.name}_${i}`;
+                    checkLabel.textContent = option;
+                    
+                    checkContainer.appendChild(checkbox);
+                    checkContainer.appendChild(checkLabel);
+                    input.appendChild(checkContainer);
+                });
+            } else {
+                // 单个复选框
+                const checkContainer = document.createElement('div');
+                checkContainer.className = 'form-check';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'form-check-input';
+                checkbox.name = `field_${field.name}`;
+                checkbox.id = `field_${field.name}`;
+                checkbox.value = "true";
+                
+                const checkLabel = document.createElement('label');
+                checkLabel.className = 'form-check-label';
+                checkLabel.htmlFor = `field_${field.name}`;
+                checkLabel.textContent = field.name;
+                
+                checkContainer.appendChild(checkbox);
+                checkContainer.appendChild(checkLabel);
+                input.appendChild(checkContainer);
+            }
+            break;
+        case 'boolean':
+            input = document.createElement('div');
+            input.className = 'd-flex gap-4 mt-2';
+            
+            const trueRadio = createRadioButton(`field_${field.name}`, 'true', '是', field.required);
+            const falseRadio = createRadioButton(`field_${field.name}`, 'false', '否', field.required);
+            
+            input.appendChild(trueRadio);
+            input.appendChild(falseRadio);
+            break;
+        case 'file':
+            input = document.createElement('input');
+            input.type = 'file';
+            input.className = 'form-control';
+            if (field.accept) input.accept = field.accept;
+            if (field.multiple) input.multiple = true;
+            break;
+        default:
+            input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'form-control';
+            input.placeholder = `请输入${field.name}`;
+    }
+    
+    // 设置通用属性
+    if (input.tagName !== 'DIV') {
+        input.id = `field_${field.name}`;
+        input.name = `field_${field.name}`;
+        input.required = !!field.required;
+        
+        // 添加验证提示
+        if (field.required) {
+            input.addEventListener('invalid', function() {
+                this.setCustomValidity(`请填写${field.name}`);
+            });
+            
+            input.addEventListener('input', function() {
+                this.setCustomValidity('');
+            });
+        }
+        
+        // 为所有输入框添加输入事件，显示已填写状态
+        input.addEventListener('input', function() {
+            if (this.value.trim() !== '') {
+                this.classList.add('is-valid');
+                this.classList.remove('is-invalid');
+            } else {
+                this.classList.remove('is-valid');
+                // 只有必填项为空时才显示无效
+                if (field.required) {
+                    this.classList.add('is-invalid');
+                }
+            }
+        });
+    }
+    
+    formField.appendChild(input);
+    
+    // 添加帮助文本
+    if (field.help_text) {
+        const helpText = document.createElement('div');
+        helpText.className = 'form-field-help';
+        helpText.textContent = field.help_text;
+        formField.appendChild(helpText);
+    }
+    
+    return formField;
+}
+</script>
+
+<!-- 全部数据模态框 -->
+<div class="modal fade" id="viewAllDataModal" tabindex="-1" aria-labelledby="viewAllDataModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered" style="max-width: 92%; max-height: 95vh;">
+        <div class="modal-content">
+                            <div class="modal-header bg-light py-1" style="min-height: auto;">
+                <h5 class="modal-title fs-6" id="viewAllDataModalLabel">{{ dataset.name }} - 完整数据</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="data-filters py-0 px-3 bg-white border-bottom" style="margin-bottom: 0; padding-bottom: 0;">
+                    <div class="row g-0 align-items-center">
+                        <div class="col-md-5">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                <input type="text" class="form-control" id="dataSearchInput" placeholder="搜索关键词...">
+                                <button type="button" class="btn btn-outline-secondary" id="refreshDataBtn">
+                                    <i class="bi bi-arrow-clockwise"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-7 text-end">
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-primary" id="exportDataBtn">
+                                    <i class="bi bi-download"></i> 导出
+                                </button>
+                                <button type="button" class="btn btn-outline-danger" id="batchDeleteBtn" disabled>
+                                    <i class="bi bi-trash"></i> 批量删除 <span id="selectedCount" class="badge bg-danger">0</span>
+                                </button>
+                                <button type="button" class="btn btn-outline-info" id="toggleAdvancedFiltersBtn">
+                                    <i class="bi bi-funnel"></i> 高级筛选 <span id="filterBadge" class="badge bg-info" style="display: none;">0</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 高级筛选区域 -->
+                    <div id="advancedFiltersArea" class="advanced-filters-area mt-2" style="display: none;">
+                        <div class="card shadow-sm">
+                            <div class="card-header bg-light py-2">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0"><i class="bi bi-funnel-fill"></i> 高级筛选</h6>
+                                    <button type="button" class="btn btn-sm btn-primary" id="addFilterBtn">
+                                        <i class="bi bi-plus-lg"></i> 添加筛选条件
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body py-3">
+                                <div id="filterConditionsContainer">
+                                    <!-- 筛选条件将在这里动态添加 -->
+                                    <div class="empty-filters text-center text-muted py-3">
+                                        <i class="bi bi-funnel"></i>
+                                        <p class="mb-0">点击"添加筛选条件"按钮开始筛选</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="filter-actions mt-3 text-end">
+                                    <button type="button" class="btn btn-sm btn-secondary" id="clearFiltersBtn">
+                                        <i class="bi bi-x-lg"></i> 清除筛选
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-primary" id="applyFiltersBtn">
+                                        <i class="bi bi-check-lg"></i> 应用筛选
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 当前筛选条件标签区域 -->
+                    <div id="activeFiltersArea" class="active-filters mt-0 mb-0 py-0" style="display: none;">
+                        <div class="d-flex align-items-center flex-wrap gap-1">
+                            <small class="text-muted">当前筛选:</small>
+                            <div id="activeFilterTags" class="d-flex flex-wrap gap-0">
+                                <!-- 活动筛选标签将在这里动态添加 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="table-container" style="height: calc(85vh - 120px); overflow: auto; margin: 0; padding: 0; border: none;">
+                    <table class="table table-hover table-striped table-sm" id="fullDataTable">
+                        <thead id="fullDataTableHead" class="table-light sticky-top">
+                            <tr>
+                                <!-- 表头将由JavaScript动态填充 -->
+                            </tr>
+                        </thead>
+                        <tbody id="fullDataTableBody">
+                            <!-- 数据将由JavaScript动态填充 -->
+                            <tr class="loading-row">
+                                <td colspan="5" class="text-center py-5">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    <p class="mt-2">加载数据中...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="data-pagination py-1 px-3 bg-white border-top">
+                    <div class="row align-items-center">
+                        <div class="col-md-5">
+                            <div class="d-flex align-items-center">
+                                <p class="mb-0 text-muted pagination-info small">显示 <span id="currentFrom">0</span>-<span id="currentTo">0</span> 条，共 <span id="totalRecords">0</span> 条记录</p>
+                                <div id="filterInfoDisplay" class="small text-info ms-2" style="display: none;">
+                                    <i class="bi bi-funnel-fill"></i> <span id="filterInfoText">已筛选</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-7">
+                            <div class="d-flex justify-content-end align-items-center">
+                                <span class="text-muted me-3 small">提示：可滚动查看更多数据</span>
+                                <nav aria-label="数据分页">
+                                    <ul class="pagination pagination-sm justify-content-end mb-0">
+                                        <li class="page-item disabled">
+                                            <a class="page-link" href="#" tabindex="-1" aria-disabled="true">上一页</a>
+                                        </li>
+                                        <li class="page-item active"><a class="page-link" href="#" data-page="1">1</a></li>
+                                        <li class="page-item disabled">
+                                            <a class="page-link" href="#" tabindex="-1" aria-disabled="true">下一页</a>
+                                        </li>
+                                    </ul>
+                                </nav>
+                                <button type="button" class="btn btn-sm btn-secondary ms-2" data-bs-dismiss="modal">关闭</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- 移除了额外的底部区域，整合到分页区域中 -->
+        </div>
+    </div>
+</div>
+
+<style>
+/* 主容器样式 - 使内容居中 */
+.main-container {
+    width: 100%;
+    max-width: 2500px;
+    margin: 0 auto;
+    padding: 0 15px;
+}
+
+/* 仪表盘容器样式 */
+.dashboard-container {
+    width: 95%;
+    margin: 0 auto;
+    max-width: 2500px;
+}
+
+/* 响应式布局调整 */
+@media (max-width: 1600px) {
+    .dashboard-container {
+        width: 98%;
+    }
+}
+
+@media (max-width: 1200px) {
+    .dashboard-container {
+        width: 100%;
+    }
+}
+
+/* 数据集标题区域 */
+.dataset-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.dataset-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.dataset-title h2 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 600;
+    color: #333;
+}
+
+.dataset-version {
+    padding: 3px 10px;
+    border-radius: 15px;
+    font-size: 14px;
+    font-weight: 500;
+    background-color: #f0f7ff;
+    color: #4a89dc;
+}
+
+.dataset-actions {
+    display: flex;
+    gap: 10px;
+}
+
+/* 数据集元数据区域 */
+.dataset-metadata {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.metadata-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #555;
+    font-size: 14px;
+}
+
+.metadata-item i {
+    color: #4a89dc;
+}
+
+/* 数据集描述 */
+.dataset-description {
+    margin-top: 15px;
+}
+
+.dataset-description h5 {
+    font-size: 16px;
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.dataset-description p {
+    color: #555;
+    line-height: 1.6;
+}
+
+/* 数据源列表 */
+.data-sources-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.data-source-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.data-source-item:hover {
+    background: #f0f0f0;
+    transform: translateY(-2px);
+}
+
+.source-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: #4a89dc;
+    color: white;
+    font-size: 18px;
+}
+
+.source-details {
+    flex: 1;
+}
+
+.source-name {
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 5px;
+}
+
+.source-meta {
+    display: flex;
+    gap: 10px;
+    font-size: 13px;
+    color: #666;
+}
+
+/* 空状态样式 */
+.empty-sources,
+.empty-preview,
+.empty-linked-projects {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px 20px;
+    text-align: center;
+    background: #f9f9f9;
+    border-radius: 8px;
+    color: #666;
+}
+
+.empty-icon {
+    font-size: 40px;
+    color: #ccc;
+    margin-bottom: 15px;
+}
+
+.empty-subtext {
+    font-size: 14px;
+    color: #999;
+    margin-top: 5px;
+}
+
+/* 数据质量指标 */
+.quality-metrics {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.quality-metric-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.metric-label {
+    font-weight: 500;
+    color: #333;
+}
+
+.progress {
+    height: 8px;
+    background: #eee;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    font-size: 10px;
+    line-height: 8px;
+}
+
+.quality-note {
+    color: #999;
+    font-size: 12px;
+}
+
+/* 数据预览区域 */
+.dataset-preview-wrapper {
+    overflow: auto;
+}
+
+.dataset-preview {
+    min-width: 100%;
+}
+
+.title-actions {
+    margin-left: auto;
+}
+
+.preview-note {
+    margin-top: 10px;
+    text-align: right;
+    color: #666;
+}
+
+/* 表格样式 */
+.table {
+    margin-bottom: 0;
+}
+
+.table th {
+    background: #f8f9fa;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.table th, .table td {
+    white-space: nowrap;
+    padding: 8px 12px;
+}
+
+/* 危险按钮样式 */
+.clinical-button-danger {
+    background-color: #fff0f0;
+    color: #dc3545;
+    border-color: #ffccd1;
+}
+
+.clinical-button-danger:hover {
+    background-color: #dc3545;
+    color: white;
+    border-color: #dc3545;
+}
+
+/* 应用场景 */
+.usage-scenarios {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.scenario-item {
+    display: flex;
+    gap: 15px;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.scenario-item:hover {
+    background: #f0f0f0;
+    transform: translateY(-2px);
+}
+
+.scenario-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 45px;
+    height: 45px;
+    border-radius: 8px;
+    background: #4a89dc;
+    color: white;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.scenario-content {
+    flex: 1;
+}
+
+.scenario-content h5 {
+    margin: 0 0 5px 0;
+    font-size: 16px;
+    color: #333;
+}
+
+.scenario-content p {
+    margin: 0;
+    color: #666;
+    font-size: 14px;
+}
+
+/* 关联项目列表 */
+.linked-projects-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.linked-project-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.linked-project-item:hover {
+    background: #f0f0f0;
+    transform: translateY(-2px);
+}
+
+.project-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: #2ecc71;
+    color: white;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.project-details {
+    flex: 1;
+}
+
+.project-name {
+    font-weight: 500;
+    color: #333;
+    text-decoration: none;
+    display: block;
+    margin-bottom: 5px;
+}
+
+.project-name:hover {
+    color: #4a89dc;
+    text-decoration: none;
+}
+
+.project-meta {
+    display: flex;
+    gap: 10px;
+    font-size: 13px;
+    color: #666;
+}
+
+/* 模态框样式 */
+.modal-content {
+    border-radius: 10px;
+    border: none;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+}
+
+.modal-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #eaeaea;
+    border-radius: 10px 10px 0 0;
+}
+
+.modal-title {
+    color: #333;
+    font-weight: 500;
+}
+
+.btn-outline-primary {
+    color: #4a89dc;
+    border-color: #4a89dc;
+}
+
+.btn-outline-primary:hover {
+    background-color: #4a89dc;
+    border-color: #4a89dc;
+    color: white;
+}
+
+.btn-primary {
+    background-color: #4a89dc;
+    border-color: #4a89dc;
+}
+
+.btn-primary:hover {
+    background-color: #3b7dd8;
+    border-color: #3b7dd8;
+}
+
+/* 全部数据模态框样式 */
+#viewAllDataModal .modal-dialog {
+    max-width: 90%;
+}
+
+#viewAllDataModal .modal-body {
+    padding: 20px;
+}
+
+.data-filters {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.data-pagination {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 20px;
+}
+
+.pagination-info {
+    font-size: 14px;
+}
+
+.loading-row td {
+    padding: 40px 0;
+}
+
+#fullDataTable th {
+    position: sticky;
+    top: 0;
+    background: #f8f9fa;
+    z-index: 10;
+    border-bottom: 2px solid #dee2e6;
+    color: #495057;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+#fullDataTable {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+#fullDataTable tbody tr:nth-of-type(odd) {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+#fullDataTable tbody tr:nth-of-type(even) {
+    background-color: #ffffff;
+}
+
+#fullDataTable tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+#fullDataTable td {
+    padding: 0.35rem 0.75rem;
+    vertical-align: middle;
+    border-top: 1px solid #f1f1f1;
+    font-size: 0.95rem;
+}
+
+.table-container::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.table-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+.empty-message {
+    text-align: center;
+    padding: 30px;
+    color: #6c757d;
+}
+
+.empty-message i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    color: #dee2e6;
+}
+
+/* 高级筛选样式 */
+.advanced-filters-area {
+    transition: all 0.3s ease;
+}
+
+.filter-condition {
+    background-color: #f8f9fa;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 10px;
+    position: relative;
+}
+
+.filter-condition .remove-filter {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    cursor: pointer;
+    color: #6c757d;
+}
+
+.filter-condition .remove-filter:hover {
+    color: #dc3545;
+}
+
+.empty-filters {
+    border: 1px dashed #dee2e6;
+    border-radius: 6px;
+}
+
+.empty-filters i {
+    font-size: 24px;
+    color: #adb5bd;
+    margin-bottom: 8px;
+}
+
+.filter-tag {
+    display: inline-flex;
+    align-items: center;
+    background-color: #e9f5fe;
+    color: #0d6efd;
+    border-radius: 16px;
+    padding: 2px 12px;
+    font-size: 13px;
+    margin-right: 5px;
+    margin-bottom: 5px;
+}
+
+/* 空值筛选标签样式 */
+.filter-tag.empty-tag {
+    background-color: #f8d7da;
+    color: #842029;
+}
+
+/* 非空值筛选标签样式 */
+.filter-tag.notempty-tag {
+    background-color: #d1e7dd;
+    color: #0f5132;
+}
+
+.filter-tag .remove-tag {
+    margin-left: 6px;
+    cursor: pointer;
+    font-size: 10px;
+}
+
+.filter-tag .remove-tag:hover {
+    color: #dc3545;
+}
+
+/* 演示数据样式 */
+.demo-data-cell {
+    background-color: rgba(0, 0, 0, 0.03);
+    color: #6c757d;
+}
+
+/* 添加搜索文本高亮样式 */
+.search-highlight {
+    background-color: rgba(255, 243, 205, 0.5);
+    padding: 0 2px;
+    border-radius: 2px;
+}
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 高级筛选相关变量 - 移到顶部确保先初始化
+    let availableColumns = [];
+    let activeFilters = [];
+    let currentPage = 1;
+
+    // Get dataset ID once at the beginning to avoid redeclaration issues
+    const datasetId = '{{ dataset.id }}';
+    console.log("正在初始化数据集预览，数据集ID:", datasetId);
+    
+    // 初始化默认筛选字段
+    initDefaultFilterFields();
+    
+    // Initialize modal instance once
+    const viewAllDataModal = document.getElementById('viewAllDataModal');
+    const dataModal = new bootstrap.Modal(viewAllDataModal, {
+        backdrop: 'static', // Prevents closing when clicking outside
+        keyboard: true      // Allows ESC key to close the modal
+    });
+    
+    // 初始化图表
+    initCharts();
+    
+    // 加载字段分组数据
+    loadFieldGroups();
+    
+    // 初始化图表函数
+    function initCharts() {
+        // 初始化字段完整度分布图表
+        initCompletenessChart();
+    }
+    
+    // 初始化字段完整度分布图表
+    function initCompletenessChart() {
+        const chartElement = document.getElementById('completenessChart');
+        if (!chartElement) return;
+        
+        // 清除加载指示器
+        chartElement.innerHTML = '';
+        
+        // 创建Canvas元素
+        const canvas = document.createElement('canvas');
+        chartElement.appendChild(canvas);
+        
+        // 创建描述元素
+        const descriptionElement = document.createElement('div');
+        descriptionElement.className = 'chart-description mt-3';
+        descriptionElement.innerHTML = '<p class="text-center"><i class="bi bi-arrow-repeat spin"></i> 加载字段完整度数据中...</p>';
+        
+        // 默认模拟数据 - 如果API请求失败将使用这些数据
+        const defaultData = {
+            labels: [],
+            datasets: [{
+                label: '数据条数',
+                data: [],
+                backgroundColor: '#4a89dc',
+                borderColor: '#3a79cc',
+                borderWidth: 1
+            }]
+        };
+        
+        // 创建图表（先用默认数据）
+        const chart = new Chart(canvas, {
+            type: 'bar',
+            data: defaultData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.raw}条数据`;
+                            }
+                        },
+                        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                        padding: 10,
+                        titleFont: {
+                            size: 14
+                        },
+                        bodyFont: {
+                            size: 13
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: '字段数据完整度统计',
+                        font: {
+                            size: 16,
+                            weight: '500'
+                        },
+                        color: '#333',
+                        padding: {
+                            bottom: 15
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: '字段名称',
+                            font: {
+                                weight: '500'
+                            },
+                            padding: {
+                                top: 10
+                }
+                        },
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            font: {
+                                size: 11
+                            },
+                            maxRotation: 45,
+                            minRotation: 45,
+                            autoSkip: true
+                            // 删除了截断长字段名的回调函数
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: '数据条数',
+                            font: {
+                                weight: '500'
+                            },
+                            padding: {
+                                bottom: 10
+                            }
+                        },
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        },
+                        ticks: {
+                            font: {
+                                size: 12
+                            }
+                            }
+                        }
+                    },
+                layout: {
+                    padding: {
+                        left: 10,
+                        right: 20,
+                        top: 0,
+                        bottom: 30
+                    }
+                },
+                animation: {
+                    duration: 1000,
+                    easing: 'easeOutQuart'
+                }
+            }
+        });
+        
+        // 从API获取真实数据
+        fetch(`/api/datasets/${datasetId}/field_completeness`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('获取字段完整度数据失败');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success && data.fields) {
+                    console.log('获取到字段完整度数据:', data.fields);
+                    
+                    // 按照完整度排序字段（从高到低）
+                    const sortedFields = [...data.fields].sort((a, b) => b.count - a.count);
+                    
+                    // 调整图表容器高度 - 根据字段数量动态调整
+                    adjustChartHeight(chartElement, sortedFields.length);
+                    
+                    // 更新图表数据 - 显示所有字段
+                    chart.data.labels = sortedFields.map(field => field.name);
+                    chart.data.datasets[0].data = sortedFields.map(field => field.count);
+                    
+                    // 根据完整度设置不同的颜色
+                    chart.data.datasets[0].backgroundColor = sortedFields.map(field => {
+                        const completenessRate = field.count / data.total_records;
+                        if (completenessRate >= 0.9) return '#4CAF50'; // 高完整度 - 绿色
+                        if (completenessRate >= 0.7) return '#8BC34A'; // 良好完整度 - 浅绿
+                        if (completenessRate >= 0.5) return '#FFC107'; // 中等完整度 - 黄色
+                        if (completenessRate >= 0.3) return '#FF9800'; // 低完整度 - 橙色
+                        return '#F44336'; // 很低完整度 - 红色
+                    });
+                    
+                    chart.update();
+                    
+                    // 更新描述文本
+                    const highCompleteness = sortedFields.filter(f => f.count / data.total_records >= 0.9).length;
+                    const lowCompleteness = sortedFields.filter(f => f.count / data.total_records < 0.5).length;
+                    
+                    let descriptionHTML = `
+                        <div class="stats-summary">
+                            <div class="stat-item">
+                                <div class="stat-value">${sortedFields.length}</div>
+                                <div class="stat-label">总字段数</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">${data.total_records}</div>
+                                <div class="stat-label">总记录数</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value text-success">${highCompleteness}</div>
+                                <div class="stat-label">高完整度字段</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value text-danger">${lowCompleteness}</div>
+                                <div class="stat-label">低完整度字段</div>
+                            </div>
+                        </div>
+                        <div class="completeness-legend mt-3">
+                            <div class="legend-item">
+                                <span class="legend-color" style="background-color: #4CAF50;"></span>
+                                <span class="legend-text">高完整度 (≥90%)</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background-color: #8BC34A;"></span>
+                                <span class="legend-text">良好完整度 (≥70%)</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background-color: #FFC107;"></span>
+                                <span class="legend-text">中等完整度 (≥50%)</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background-color: #FF9800;"></span>
+                                <span class="legend-text">低完整度 (≥30%)</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background-color: #F44336;"></span>
+                                <span class="legend-text">很低完整度 (<30%)</span>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // 添加描述元素到图表下方
+                    chartElement.after(descriptionElement);
+                    descriptionElement.innerHTML = descriptionHTML;
+                }
+            })
+            .catch(error => {
+                console.error('获取字段完整度数据失败:', error);
+                
+                // 使用模拟数据
+                const mockFields = [
+                    { name: '姓名', count: 120 },
+                    { name: '年龄', count: 115 },
+                    { name: '性别', count: 118 },
+                    { name: '诊断', count: 105 },
+                    { name: '入院日期', count: 110 },
+                    { name: '检验结果', count: 85 },
+                    { name: '用药记录', count: 75 },
+                    { name: '随访记录', count: 50 }
+                ];
+                
+                // 调整图表容器高度 - 根据字段数量动态调整
+                adjustChartHeight(chartElement, mockFields.length);
+                
+                chart.data.labels = mockFields.map(field => field.name);
+                chart.data.datasets[0].data = mockFields.map(field => field.count);
+                chart.data.datasets[0].backgroundColor = mockFields.map(field => {
+                    const completenessRate = field.count / 120; // 假设总记录数为120
+                    if (completenessRate >= 0.9) return '#4CAF50';
+                    if (completenessRate >= 0.7) return '#8BC34A';
+                    if (completenessRate >= 0.5) return '#FFC107';
+                    if (completenessRate >= 0.3) return '#FF9800';
+                    return '#F44336';
+                });
+                
+                chart.update();
+                
+                // 更新描述文本（使用模拟数据）
+                let descriptionHTML = `
+                    <div class="stats-summary">
+                        <div class="stat-item">
+                            <div class="stat-value">8</div>
+                            <div class="stat-label">总字段数</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">120</div>
+                            <div class="stat-label">总记录数</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value text-success">4</div>
+                            <div class="stat-label">高完整度字段</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value text-danger">2</div>
+                            <div class="stat-label">低完整度字段</div>
+                        </div>
+                    </div>
+                    <div class="completeness-legend mt-3">
+                        <div class="legend-item">
+                            <span class="legend-color" style="background-color: #4CAF50;"></span>
+                            <span class="legend-text">高完整度 (≥90%)</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color" style="background-color: #8BC34A;"></span>
+                            <span class="legend-text">良好完整度 (≥70%)</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color" style="background-color: #FFC107;"></span>
+                            <span class="legend-text">中等完整度 (≥50%)</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color" style="background-color: #FF9800;"></span>
+                            <span class="legend-text">低完整度 (≥30%)</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color" style="background-color: #F44336;"></span>
+                            <span class="legend-text">很低完整度 (<30%)</span>
+                        </div>
+                    </div>
+                    <p class="text-warning mt-2"><i class="bi bi-exclamation-triangle"></i> 使用模拟数据，实际数据加载失败</p>
+                `;
+                
+                // 添加描述元素到图表下方
+                chartElement.after(descriptionElement);
+                descriptionElement.innerHTML = descriptionHTML;
+            });
+    }
+    
+    // 根据字段数量动态调整图表高度
+    function adjustChartHeight(chartElement, fieldCount) {
+        // 基础高度
+        let baseHeight = 400;
+        
+        // 根据字段数量调整高度
+        if (fieldCount <= 10) {
+            // 少量字段，使用默认高度
+            chartElement.style.height = `${baseHeight}px`;
+        } else if (fieldCount <= 20) {
+            // 中等数量字段，适当增加高度
+            chartElement.style.height = `${baseHeight}px`;
+        } else if (fieldCount <= 40) {
+            // 较多字段，增加高度
+            chartElement.style.height = `${baseHeight + 100}px`;
+        } else {
+            // 大量字段，使用最大高度
+            chartElement.style.height = `${baseHeight + 200}px`;
+        }
+        
+        // 获取父卡片元素
+        const cardElement = chartElement.closest('.field-stats-card');
+        if (cardElement) {
+            // 确保卡片高度适应图表高度
+            const currentHeight = parseInt(chartElement.style.height);
+            // 卡片高度 = 图表高度 + 额外空间（标题、边距等）
+            cardElement.style.minHeight = `${currentHeight + 150}px`;
+        }
+        
+        // 设置图表容器的宽度，确保在卡片内部
+        chartElement.style.width = '100%';
+    }
+    
+    // 初始化默认筛选字段函数
+    function initDefaultFilterFields() {
+        // 设置一些默认字段，以防API加载失败
+        if (!availableColumns || availableColumns.length === 0) {
+            availableColumns = [
+                '姓名', '年龄', '性别', '诊断', '入院日期', '出院日期', 
+                '主诉', '既往史', '检查结果', '治疗方案', '随访记录'
+            ];
+            console.log('初始化默认筛选字段:', availableColumns);
+        }
+    }
+    
+    // Add modal hidden event handler to clean up after closing
+    viewAllDataModal.addEventListener('hidden.bs.modal', function () {
+        // Clean up any resources or reset state if needed
+        document.body.classList.remove('modal-open');
+        const modalBackdrops = document.getElementsByClassName('modal-backdrop');
+        while(modalBackdrops.length > 0) {
+            modalBackdrops[0].parentNode.removeChild(modalBackdrops[0]);
+        }
+    });
+    
+    // 初始化弹出框和下拉菜单
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // 高级筛选按钮点击事件
+    const toggleAdvancedFiltersBtn = document.getElementById('toggleAdvancedFiltersBtn');
+    if (toggleAdvancedFiltersBtn) {
+        toggleAdvancedFiltersBtn.addEventListener('click', function() {
+            const advancedFiltersArea = document.getElementById('advancedFiltersArea');
+            if (!advancedFiltersArea) return;
+            
+            // 切换显示/隐藏状态
+            const isVisible = advancedFiltersArea.style.display !== 'none';
+            
+            if (isVisible) {
+                // 当前可见，需要隐藏
+                advancedFiltersArea.style.display = 'none';
+                this.innerHTML = '<i class="bi bi-funnel"></i> 高级筛选';
+            } else {
+                // 当前隐藏，需要显示
+                // 检查是否有可用字段
+                console.log('当前可用筛选字段:', availableColumns);
+                
+                // 如果没有可用字段，尝试从表格获取
+                if (!availableColumns || availableColumns.length === 0) {
+                    const tableHead = document.getElementById('fullDataTableHead');
+                    if (tableHead) {
+                        const headerCells = tableHead.querySelectorAll('th');
+                        const columns = [];
+                        headerCells.forEach(cell => {
+                            const text = cell.textContent.trim();
+                            // 跳过复选框列和操作列
+                            if (text && text !== '操作') {
+                                columns.push(text);
+                            }
+                        });
+                        if (columns.length > 0) {
+                            availableColumns = columns;
+                            console.log('从表头获取到字段:', availableColumns);
+                        }
+                    }
+                }
+                
+                advancedFiltersArea.style.display = 'block';
+                this.innerHTML = '<i class="bi bi-funnel-fill"></i> 高级筛选';
+            }
+        });
+    }
+    
+    // 添加筛选条件按钮点击事件
+    const addFilterBtn = document.getElementById('addFilterBtn');
+    if (addFilterBtn) {
+        addFilterBtn.addEventListener('click', function() {
+            addFilterCondition();
+        });
+    }
+    
+    // 清除筛选按钮点击事件
+    const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+    if (clearFiltersBtn) {
+        clearFiltersBtn.addEventListener('click', function() {
+            clearAllFilters();
+        });
+    }
+    
+    // 应用筛选按钮点击事件
+    const applyFiltersBtn = document.getElementById('applyFiltersBtn');
+    if (applyFiltersBtn) {
+        applyFiltersBtn.addEventListener('click', function() {
+            applyFilters();
+        });
+    }
+    
+    // 导出数据按钮点击事件
+    const exportDataBtn = document.getElementById('exportDataBtn');
+    if (exportDataBtn) {
+        exportDataBtn.addEventListener('click', function() {
+            exportDataset();
+        });
+    }
+    
+    // 批量删除按钮点击事件
+    const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+    if (batchDeleteBtn) {
+        batchDeleteBtn.addEventListener('click', function() {
+            batchDelete();
+        });
+    }
+    
+    // 处理删除数据集按钮点击事件
+    const deleteDatasetBtn = document.getElementById('deleteDatasetBtn');
+    if (deleteDatasetBtn) {
+        deleteDatasetBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            if (confirm('确定要删除此数据集？此操作无法恢复。')) {
+                // 显示加载状态
+                this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 删除中...';
+                this.disabled = true;
+                
+                // 发送删除请求
+                fetch('/doctor/delete_dataset/' + datasetId, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': getCsrfToken()
+                    },
+                    credentials: 'same-origin'
+                })
+                .then(response => {
+                    // 检查是否重定向到登录页面或收到401未授权响应
+                    if (response.redirected || response.url.includes('/login') || response.status === 401) {
+                        alert('您的会话已过期，请重新登录');
+                        window.location.href = '/login';
+                        return null;
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (!data) return; // 如果是重定向，data为null，不继续处理
+                    
+                    if (data.success) {
+                        alert(data.message || '数据集已成功删除');
+                        window.location.href = "{{ url_for('doctor_my_datasets') }}";
+                    } else {
+                        // 如果有关联项目导致无法删除
+                        if (data.related_projects && data.related_projects.length > 0) {
+                            alert('无法删除数据集，因为它被' + data.related_projects.length + '个项目使用');
+                        } else {
+                            alert(data.message || '删除失败');
+                        }
+                        // 恢复按钮状态
+                        this.innerHTML = '<i class="bi bi-trash"></i> 删除数据集';
+                        this.disabled = false;
+                    }
+                })
+                .catch(error => {
+                    console.error('删除请求出错:', error);
+                    alert('删除请求出错，请重试');
+                    // 恢复按钮状态
+                    this.innerHTML = '<i class="bi bi-trash"></i> 删除数据集';
+                    this.disabled = false;
+                });
+            }
+        });
+    }
+    
+    // 处理录入数据按钮点击事件
+    const collectDataBtn = document.getElementById('collectDataBtn');
+    if (collectDataBtn) {
+        collectDataBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            // 显示数据录入模态框
+            const dataEntryModal = new bootstrap.Modal(document.getElementById('dataEntryModal'));
+            dataEntryModal.show();
+            
+            // 获取自定义字段数据
+            fetchCustomFields(datasetId);
+            
+            // 保存数据按钮点击事件 - 移除旧的事件监听器，避免重复添加
+            const saveButton = document.getElementById('saveDataBtn');
+            // 克隆并替换按钮，移除所有事件监听器
+            const newSaveButton = saveButton.cloneNode(true);
+            saveButton.parentNode.replaceChild(newSaveButton, saveButton);
+            
+            // 添加新的事件监听器
+            newSaveButton.addEventListener('click', function() {
+                saveFormData(datasetId, this);
+            });
+        });
+    }
+    
+    // 获取自定义字段
+    function fetchCustomFields(datasetId) {
+        const formFields = document.getElementById('formFields');
+        if (!formFields) {
+            console.error('找不到formFields元素');
+            return;
+        }
+        
+        // 从SQLite数据库获取自定义字段信息
+        fetch(`/api/datasets/${datasetId}/db_custom_fields`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('获取字段信息失败，状态码: ' + response.status);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success && data.fields) {
+                console.log('成功从数据库获取字段:', data.fields);
+                renderFormFields(data.fields);
+            } else {
+                throw new Error(data.message || '字段数据格式不正确');
+            }
+        })
+        .catch(error => {
+            console.error('获取自定义字段失败:', error);
+            
+            // 尝试旧的API端点作为备选方案
+            fetch(`/api/datasets/${datasetId}/custom_fields`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                credentials: 'same-origin'
+            })
+            .then(response => response.ok ? response.json() : Promise.reject('旧API请求失败'))
+            .then(data => {
+                if (data.success && data.fields) {
+                    renderFormFields(data.fields);
+                } else {
+                    throw new Error('字段数据格式不正确');
+                }
+            })
+            .catch(fallbackError => {
+                console.error('备选API也失败:', fallbackError);
+                
+                // 所有方法失败后使用默认字段（仅用于演示）
+                const defaultFields = [
+                    { name: '姓名', type: 'text', description: '患者姓名', required: true },
+                    { name: '年龄', type: 'number', description: '患者年龄', required: true },
+                    { name: '入院日期', type: 'date', description: '患者入院日期', required: true },
+                    { name: '性别', type: 'select', description: '患者性别', options: ['男', '女'], required: true },
+                    { name: '是否住院', type: 'boolean', description: '是否为住院患者', required: false },
+                    { name: '主诉', type: 'text', description: '患者主诉', required: false },
+                    { name: '既往史', type: 'text', description: '患者既往史', required: false },
+                    { name: '诊断结果', type: 'select', description: '初步诊断', options: ['待确认', '良性', '恶性', '其他'], required: false }
+                ];
+                
+                renderFormFields(defaultFields);
+                
+                // 显示获取数据失败的提示
+                const warningAlert = document.createElement('div');
+                warningAlert.className = 'alert alert-warning mt-3';
+                warningAlert.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> 无法从数据库获取字段信息，显示的是示例字段。';
+                formFields.prepend(warningAlert);
+            });
+        })
+        .finally(() => {
+            // 隐藏加载器
+            const loadingSpinner = document.querySelector('.loading-spinner');
+            if (loadingSpinner) {
+                loadingSpinner.classList.add('d-none');
+            }
+            // 显示表单
+            const dataEntryForm = document.getElementById('dataEntryForm');
+            if (dataEntryForm) {
+                dataEntryForm.classList.remove('d-none');
+            }
+        });
+    }
+    
+    // 渲染表单字段
+    function renderFormFields(fields) {
+        const formFields = document.getElementById('formFields');
+        if (!formFields) {
+            console.error('找不到formFields元素');
+            return;
+        }
+        
+        formFields.innerHTML = '';
+        
+        if (!fields || fields.length === 0) {
+            formFields.innerHTML = '<div class="alert alert-warning">未找到自定义字段信息</div>';
+            return;
+        }
+        
+        // 添加表单说明
+        const formIntro = document.createElement('div');
+        formIntro.className = 'mb-4 p-3 bg-light rounded';
+        formIntro.innerHTML = `
+            <h6><i class="bi bi-info-circle"></i> 表单填写说明</h6>
+            <p class="mb-0 small">请填写以下字段的数据，标记 <span class="text-danger">*</span> 的字段为必填项。</p>
+            <p class="mb-0 small text-danger mt-2"><i class="bi bi-exclamation-triangle-fill"></i> 提交前请至少填写一项数据，否则表单无法保存。</p>
+        `;
+        formFields.appendChild(formIntro);
+
+        // 创建表单字段分组
+        const fieldset = document.createElement('fieldset');
+        fieldset.className = 'p-2 border rounded mb-3';
+        
+        const legend = document.createElement('legend');
+        legend.className = 'w-auto px-2 fs-6 text-primary';
+        legend.textContent = '数据采集表单';
+        fieldset.appendChild(legend);
+        
+        fields.forEach(field => {
+            const fieldGroup = document.createElement('div');
+            fieldGroup.className = 'mb-3 row';
+            
+            // 创建标签容器
+            const labelCol = document.createElement('div');
+            labelCol.className = 'col-md-3';
+            
+            // 创建标签
+            const label = document.createElement('label');
+            label.className = 'form-label';
+            label.htmlFor = `field_${field.name}`;
+            label.innerHTML = `${field.name}${field.required ? ' <span class="text-danger">*</span>' : ''}`;
+            labelCol.appendChild(label);
+            
+            // 添加字段描述提示
+            if (field.description) {
+                const tooltip = document.createElement('small');
+                tooltip.className = 'd-block text-muted';
+                tooltip.textContent = field.description;
+                labelCol.appendChild(tooltip);
+            }
+            
+            fieldGroup.appendChild(labelCol);
+            
+            // 创建输入框容器
+            const inputCol = document.createElement('div');
+            inputCol.className = 'col-md-9';
+            
+            // 创建输入框或选择框
+            let input;
+            
+            switch (field.type) {
+                case 'text':
+                    input = document.createElement('input');
+                    input.type = 'text';
+                    input.className = 'form-control';
+                    input.placeholder = `请输入${field.name}`;
+                    break;
+                case 'number':
+                    input = document.createElement('input');
+                    input.type = 'number';
+                    input.className = 'form-control';
+                    input.placeholder = `请输入${field.name}`;
+                    break;
+                case 'date':
+                    input = document.createElement('input');
+                    input.type = 'date';
+                    input.className = 'form-control';
+                    break;
+                case 'select':
+                    input = document.createElement('select');
+                    input.className = 'form-select';
+                    
+                    // 添加默认选项
+                    const defaultOption = document.createElement('option');
+                    defaultOption.value = '';
+                    defaultOption.textContent = `-- 请选择${field.name} --`;
+                    defaultOption.selected = true;
+                    input.appendChild(defaultOption);
+                    
+                    // 添加选项
+                    if (field.options && field.options.length > 0) {
+                        field.options.forEach(option => {
+                            const optionEl = document.createElement('option');
+                            optionEl.value = option;
+                            optionEl.textContent = option;
+                            input.appendChild(optionEl);
+                        });
+                    }
+                    break;
+                case 'boolean':
+                    // 创建单选按钮组
+                    input = document.createElement('div');
+                    input.className = 'd-flex gap-4 mt-2';
+                    
+                    const trueRadio = createRadioButton(`field_${field.name}`, 'true', '是', field.required);
+                    const falseRadio = createRadioButton(`field_${field.name}`, 'false', '否', field.required);
+                    
+                    input.appendChild(trueRadio);
+                    input.appendChild(falseRadio);
+                    break;
+                default:
+                    input = document.createElement('input');
+                    input.type = 'text';
+                    input.className = 'form-control';
+                    input.placeholder = `请输入${field.name}`;
+            }
+            
+            // 设置通用属性
+            if (input.tagName !== 'DIV') {
+                input.id = `field_${field.name}`;
+                input.name = `field_${field.name}`;
+                input.required = !!field.required;
+                
+                // 添加验证提示
+                if (field.required) {
+                    input.addEventListener('invalid', function() {
+                        this.setCustomValidity(`请填写${field.name}`);
+                    });
+                    
+                    input.addEventListener('input', function() {
+                        this.setCustomValidity('');
+                    });
+                }
+                
+                // 为所有输入框添加输入事件，显示已填写状态
+                input.addEventListener('input', function() {
+                    if (this.value.trim() !== '') {
+                        this.classList.add('is-valid');
+                        this.classList.remove('is-invalid');
+                    } else {
+                        this.classList.remove('is-valid');
+                        // 只有必填项为空时才显示无效
+                        if (field.required) {
+                            this.classList.add('is-invalid');
+                        }
+                    }
+                });
+            }
+            
+            inputCol.appendChild(input);
+            
+            // 添加帮助文本
+            if (field.help_text) {
+                const helpText = document.createElement('div');
+                helpText.className = 'form-text small';
+                helpText.textContent = field.help_text;
+                inputCol.appendChild(helpText);
+            }
+            
+            fieldGroup.appendChild(inputCol);
+            fieldset.appendChild(fieldGroup);
+        });
+        
+        formFields.appendChild(fieldset);
+        
+        // 隐藏加载器
+        const loadingSpinner = document.querySelector('.loading-spinner');
+        if (loadingSpinner) {
+            loadingSpinner.classList.add('d-none');
+        }
+        // 显示表单
+        const dataEntryForm = document.getElementById('dataEntryForm');
+        if (dataEntryForm) {
+            dataEntryForm.classList.remove('d-none');
+        }
+    }
+    
+    // 保存表单数据
+    function saveFormData(datasetId, saveButton) {
+        const form = document.getElementById('dataEntryForm');
+        
+        // 基本表单验证
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+        
+        // 检查表单是否为空
+        let hasData = false;
+        const inputs = form.querySelectorAll('input:not([type=hidden]), select, textarea');
+        
+        for (const input of inputs) {
+            // 排除隐藏字段、单选按钮和复选框（未选中的情况）
+            if ((input.type === 'radio' || input.type === 'checkbox') && !input.checked) {
+                continue;
+            }
+            
+            // 如果任何字段有值，则表单不为空
+            if (input.value.trim() !== '') {
+                hasData = true;
+                break;
+            }
+        }
+        
+        // 如果表单为空，显示错误提示并中止提交
+        if (!hasData) {
+            showToast('错误', '请至少填写一项数据后再提交表单', 'warning');
+            return;
+        }
+        
+        const formData = new FormData(form);
+        
+        // 禁用按钮，显示加载状态
+        saveButton.disabled = true;
+        saveButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 保存中...';
+        
+        // 提交数据到后端API
+        fetch(`/api/datasets/${datasetId}/data`, {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('保存数据失败，状态码: ' + response.status);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // 显示成功提示
+                showToast('成功', '数据已成功保存', 'success');
+                
+                // 重置表单
+                form.reset();
+            } else {
+                throw new Error(data.message || '保存数据失败');
+            }
+        })
+        .catch(error => {
+            console.error('提交数据错误:', error);
+            showToast('错误', error.message || '保存数据时发生错误', 'danger');
+        })
+        .finally(() => {
+            // 恢复按钮状态
+            saveButton.disabled = false;
+            saveButton.innerHTML = '保存数据';
+        });
+    }
+    
+    // 辅助函数：创建单选按钮
+    function createRadioButton(name, value, label, required = false) {
+        const container = document.createElement('div');
+        container.className = 'form-check';
+        
+        const input = document.createElement('input');
+        input.className = 'form-check-input';
+        input.type = 'radio';
+        input.name = name;
+        input.id = `${name}_${value}`;
+        input.value = value;
+        input.required = required;
+        
+        const labelElement = document.createElement('label');
+        labelElement.className = 'form-check-label';
+        labelElement.htmlFor = `${name}_${value}`;
+        labelElement.textContent = label;
+        
+        container.appendChild(input);
+        container.appendChild(labelElement);
+        
+        return container;
+    }
+    
+    // 显示提示函数
+    function showToast(title, message, type = 'info') {
+        // 创建Toast元素
+        const toastEl = document.createElement('div');
+        toastEl.className = 'toast position-fixed bottom-0 end-0 m-3';
+        toastEl.setAttribute('role', 'alert');
+        toastEl.setAttribute('aria-live', 'assertive');
+        toastEl.setAttribute('aria-atomic', 'true');
+        
+        // 设置自动隐藏延时
+        toastEl.setAttribute('data-bs-delay', '3000');
+        
+        // 设置Toast内容
+        toastEl.innerHTML = `
+            <div class="toast-header bg-${type} text-white">
+                <strong class="me-auto">${title}</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body">
+                ${message}
+            </div>
+        `;
+        
+        // 添加到文档中
+        document.body.appendChild(toastEl);
+        
+        // 初始化Bootstrap Toast
+        const toast = new bootstrap.Toast(toastEl);
+        toast.show();
+        
+        // Toast隐藏后移除DOM
+        toastEl.addEventListener('hidden.bs.toast', function() {
+            document.body.removeChild(toastEl);
+        });
+    }
+    
+    // 获取CSRF令牌的函数
+    function getCsrfToken() {
+        // 尝试从meta标签获取
+        const metaTag = document.querySelector('meta[name="csrf-token"]');
+        if (metaTag) {
+            return metaTag.getAttribute('content');
+        }
+        
+        // 尝试从表单中获取
+        const csrfInput = document.querySelector('input[name="csrf_token"]');
+        if (csrfInput) {
+            return csrfInput.value;
+        }
+        
+        return '';
+    }
+    
+    // 关联项目模态框确认按钮点击事件
+    const confirmLinkBtn = document.querySelector('#linkProjectModal .btn-primary');
+    if (confirmLinkBtn) {
+        confirmLinkBtn.addEventListener('click', function() {
+            const selectedProject = document.getElementById('selectProject').value;
+            const linkPurpose = document.getElementById('linkPurpose').value;
+            
+            if (!selectedProject) {
+                alert('请选择要关联的项目');
+                return;
+            }
+            
+            // 显示加载状态
+            this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 处理中...';
+            this.disabled = true;
+            
+            // 模拟API请求
+            setTimeout(() => {
+                // 恢复按钮状态
+                this.innerHTML = '确认关联';
+                this.disabled = false;
+                
+                // 关闭模态框
+                bootstrap.Modal.getInstance(document.getElementById('linkProjectModal')).hide();
+                
+                // 显示成功消息
+                alert('项目关联成功');
+                
+                // 刷新页面或动态添加新关联的项目
+                location.reload();
+            }, 1000);
+        });
+    }
+    
+    // 立即加载数据预览
+    loadDatasetPreview();
+    
+    // 全部数据按钮点击事件
+    const viewAllDataBtn = document.getElementById('viewAllDataBtn');
+    if (viewAllDataBtn) {
+        viewAllDataBtn.addEventListener('click', function() {
+            console.log("点击了全部数据按钮");
+            try {
+                // 确保模态框存在
+                if (!viewAllDataModal) {
+                    console.error("找不到模态框元素");
+                    alert("无法打开数据视图，请刷新页面重试");
+                    return;
+                }
+                
+                // 确保筛选字段已初始化
+                if (!availableColumns || availableColumns.length === 0) {
+                    initDefaultFilterFields();
+                }
+                
+                // 显示模态框
+            dataModal.show();
+                console.log("模态框已显示");
+            
+            // 重置筛选状态
+                if (activeFilters && activeFilters.length > 0) {
+                // 保留现有筛选条件
+                updateActiveFilterTags();
+            } else {
+                // 隐藏筛选区域
+                const activeFiltersArea = document.getElementById('activeFiltersArea');
+                if (activeFiltersArea) {
+                    activeFiltersArea.style.display = 'none';
+                }
+                
+                const advancedFiltersArea = document.getElementById('advancedFiltersArea');
+                if (advancedFiltersArea) {
+                    advancedFiltersArea.style.display = 'none';
+                }
+                
+                const toggleAdvancedFiltersBtn = document.getElementById('toggleAdvancedFiltersBtn');
+                if (toggleAdvancedFiltersBtn) {
+                    toggleAdvancedFiltersBtn.innerHTML = '<i class="bi bi-funnel"></i> 高级筛选';
+                }
+            }
+            
+            // 加载全部数据
+            loadFullDataset(1);
+            } catch (error) {
+                console.error("打开模态框时出错:", error);
+                alert("打开数据视图时出错，请刷新页面重试");
+            }
+        });
+    }
+    
+    // 刷新数据按钮点击事件
+    const refreshDataBtn = document.getElementById('refreshDataBtn');
+    if (refreshDataBtn) {
+        refreshDataBtn.addEventListener('click', function() {
+            loadFullDataset(1);
+        });
+    }
+    
+    // 确保模态框关闭按钮正常工作
+    const closeModalBtn = document.querySelector('#viewAllDataModal .btn-secondary');
+    if (closeModalBtn) {
+        closeModalBtn.addEventListener('click', function() {
+        dataModal.hide();
+        });
+    }
+    
+    // 加载数据预览函数
+    function loadDatasetPreview() {
+        console.log("加载数据集预览");
+        // 显示加载状态
+        const tableBody = document.getElementById('previewTableBody');
+        if (!tableBody) {
+            console.error("找不到预览表格元素");
+            return;
+        }
+        
+        tableBody.innerHTML = 
+            '<tr>' +
+            '    <td colspan="5" class="text-center py-4">' +
+            '        <div class="spinner-border text-primary" role="status">' +
+            '            <span class="visually-hidden">Loading...</span>' +
+            '        </div>' +
+            '        <p class="mt-2">加载数据中...</p>' +
+            '    </td>' +
+            '</tr>';
+        
+        // 发送API请求获取数据
+        fetch('/api/datasets/' + datasetId + '/view_data?preview=1')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('网络响应异常: ' + response.status + ' ' + response.statusText);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log("解析数据预览:", data);
+                
+                if (!data.success) {
+                    throw new Error(data.message || '获取数据失败');
+                }
+                
+                // 获取表头和表体元素
+                const tableHead = document.getElementById('previewTableHead');
+                const tableBody = document.getElementById('previewTableBody');
+                
+                if (!tableHead || !tableBody) {
+                    console.error("找不到表格元素");
+                    return;
+                }
+                
+                // 清空现有内容
+                tableHead.innerHTML = '';
+                tableBody.innerHTML = '';
+                
+                // 从API响应中提取数据
+                let columns = [];
+                let rows = [];
+                
+                // 优先从entries构建数据（实际数据）
+                if (data.entries && data.entries.length > 0 && data.fields && data.fields.length > 0) {
+                    // 从字段定义中提取列名
+                    columns = data.fields.map(field => field.name);
+                    
+                    // 更新可用筛选字段
+                    updateFilterOptions(columns);
+                    
+                    // 从entries中提取数据行
+                    rows = data.entries.map(entry => {
+                        // 确保entry.data存在
+                        if (!entry.data) {
+                            console.warn("数据条目缺少data字段:", entry);
+                            return columns.map(() => '');
+                        }
+                        return columns.map(column => {
+                            const value = entry.data[column];
+                            return value !== undefined && value !== null ? value : '';
+                        });
+                    });
+                }
+                // 如果entries没有数据，尝试从preview_data字段获取数据（备用）
+                else if (data.preview_data && data.preview_data.columns && data.preview_data.rows) {
+                    columns = data.preview_data.columns;
+                    rows = data.preview_data.rows;
+                    
+                    // 更新可用筛选字段
+                    updateFilterOptions(columns);
+                }
+                
+                // 如果没有数据或列定义
+                if (!columns.length || !rows.length) {
+                    tableBody.innerHTML = 
+                        '<tr>' +
+                        '    <td colspan="5" class="text-center">' +
+                        '        <div class="empty-data-icon"><i class="bi bi-inbox"></i></div>' +
+                        '        <p>暂无数据</p>' +
+                        '    </td>' +
+                        '</tr>';
+                    
+                    const previewNote = document.getElementById('previewNote');
+                    if (previewNote) {
+                        previewNote.textContent = '* 数据集中暂无数据';
+                    }
+                    
+                    return;
+                }
+                
+                // 创建表头
+                const headerRow = document.createElement('tr');
+                columns.forEach(column => {
+                    const th = document.createElement('th');
+                    th.textContent = column;
+                    headerRow.appendChild(th);
+                });
+                
+                tableHead.appendChild(headerRow);
+                
+                // 创建表体行
+                // 限制只显示最多5行
+                const maxRows = Math.min(rows.length, 5);
+                for (let i = 0; i < maxRows; i++) {
+                    const row = rows[i];
+                    const tr = document.createElement('tr');
+                    
+                    row.forEach(cell => {
+                        const td = document.createElement('td');
+                        td.textContent = cell !== null ? cell : '';
+                        tr.appendChild(td);
+                    });
+                    
+                    tableBody.appendChild(tr);
+                }
+                
+                // 更新预览说明
+                const previewNote = document.getElementById('previewNote');
+                if (previewNote) {
+                    if (rows.length > 5) {
+                        previewNote.textContent = `* 显示 ${maxRows} 条数据，共 ${rows.length} 条。点击"全部数据"查看更多。`;
+                    } else {
+                        previewNote.textContent = `* 共 ${rows.length} 条数据`;
+                    }
+                }
+                
+                // 更新筛选下拉框选项
+                updateFilterOptions(columns);
+                console.log("数据预览加载完成");
+            })
+            .catch(error => {
+                console.error('获取数据预览失败:', error);
+                if (tableBody) {
+                    tableBody.innerHTML = 
+                        '<tr>' +
+                        '    <td colspan="5" class="text-center text-danger">' +
+                        '        <i class="bi bi-exclamation-triangle"></i> 加载失败: ' + error.message +
+                        '    </td>' +
+                        '</tr>';
+                }
+                
+                const previewNote = document.getElementById('previewNote');
+                if (previewNote) {
+                    previewNote.textContent = '* 数据加载失败';
+                }
+            });
+    }
+    
+    // 加载完整数据集函数
+    function loadFullDataset(page = 1) {
+        console.log("加载完整数据集，页码:", page);
+        // 更新全局当前页码变量
+        currentPage = page;
+        
+        // 显示加载状态
+        const tableBody = document.getElementById('fullDataTableBody');
+        if (!tableBody) {
+            console.error("找不到数据表格元素");
+            return;
+        }
+        
+        tableBody.innerHTML = 
+            '<tr class="loading-row">' +
+            '    <td colspan="5" class="text-center py-4">' +
+            '        <div class="spinner-border text-primary" role="status">' +
+            '            <span class="visually-hidden">Loading...</span>' +
+            '        </div>' +
+            '        <p class="mt-2">加载数据中...</p>' +
+            '    </td>' +
+            '</tr>';
+        
+        // 获取搜索参数
+        const searchInput = document.getElementById('dataSearchInput');
+        const searchText = searchInput ? searchInput.value : '';
+        
+        // 构建API请求URL
+        const params = [
+            'page=' + page,
+            'per_page=10',
+            'view_all=1'
+        ];
+        
+        // 添加搜索参数
+        if (searchText) {
+            params.push('search=' + encodeURIComponent(searchText));
+        }
+        
+        // 添加筛选条件参数
+        if (activeFilters && activeFilters.length > 0) {
+            console.log('准备应用筛选条件，共', activeFilters.length, '个条件:', activeFilters);
+            
+            // 将筛选条件转换为后端期望的格式
+            const backendFilters = activeFilters.map(filter => {
+                console.log('处理筛选条件:', filter);
+                
+                // 转换操作符
+                let operator;
+                let includeValue = true; // 默认包含value字段
+                
+                switch (filter.operator) {
+                    case 'eq': 
+                        operator = 'equals'; 
+                        break;
+                    case 'neq': 
+                        operator = 'notEquals'; 
+                        break;
+                    case 'gt': 
+                        operator = 'greaterThan'; 
+                        break;
+                    case 'gte': 
+                        operator = 'greaterThanOrEqual'; 
+                        break;
+                    case 'lt': 
+                        operator = 'lessThan'; 
+                        break;
+                    case 'lte': 
+                        operator = 'lessThanOrEqual'; 
+                        break;
+                    case 'contains': 
+                        operator = 'contains'; 
+                        break;
+                    case 'starts': 
+                        operator = 'startsWith'; 
+                        break;
+                    case 'ends': 
+                        operator = 'endsWith'; 
+                        break;
+                                            case 'empty': 
+                        // 尝试使用更通用的判空逻辑，对值进行比较
+                        operator = 'equals'; 
+                        includeValue = true;
+                        // 使用空字符串作为比较值
+                        filter.value = '';
+                        console.log('使用空值筛选(equals空字符串):', filter.field);
+                        break;
+                    case 'notempty': 
+                        // 尝试使用不等于空字符串作为非空判断
+                        operator = 'notEquals'; 
+                        includeValue = true;
+                        // 使用空字符串作为比较值
+                        filter.value = '';
+                        console.log('使用非空值筛选(notEquals空字符串):', filter.field);
+                        break;
+                    default: 
+                        operator = 'equals';
+                }
+                
+                // 所有条件都包含value字段
+                return {
+                    field: filter.field,
+                    operator: operator,
+                    value: filter.value
+                };
+            });
+            
+            console.log('转换后的后端筛选条件:', backendFilters);
+            
+            // 添加高级筛选参数
+            const filterParam = 'advanced_filters=' + encodeURIComponent(JSON.stringify(backendFilters));
+            params.push(filterParam);
+            console.log('应用筛选参数:', filterParam);
+            console.log('筛选条件详情:', JSON.stringify(backendFilters, null, 2));
+        }
+        
+        // 更新页码信息显示
+        const currentFromElement = document.getElementById('currentFrom');
+        const currentToElement = document.getElementById('currentTo');
+        const totalRecordsElement = document.getElementById('totalRecords');
+        
+        if (currentFromElement) currentFromElement.textContent = '...';
+        if (currentToElement) currentToElement.textContent = '...';
+        if (totalRecordsElement) totalRecordsElement.textContent = '...';
+        
+        // 禁用分页控件，避免重复点击
+        const paginationLinks = document.querySelectorAll('.pagination .page-link');
+        paginationLinks.forEach(link => {
+            if (link.parentElement) {
+                link.parentElement.classList.add('disabled');
+            }
+        });
+        
+        const apiUrl = '/api/datasets/' + datasetId + '/view_data?' + params.join('&');
+        console.log("API请求URL:", apiUrl);
+        
+        // 发送API请求获取数据
+        fetch(apiUrl)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('网络响应异常: ' + response.status + ' ' + response.statusText);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log("解析完整数据:", data);
+                
+                if (!data.success) {
+                    throw new Error(data.message || '获取数据失败');
+                }
+                
+                // 获取表头和表体元素
+                const tableHead = document.getElementById('fullDataTableHead');
+                const tableBody = document.getElementById('fullDataTableBody');
+                
+                if (!tableHead || !tableBody) {
+                    console.error("找不到表格元素");
+                    return;
+                }
+                
+                // 清空现有内容
+                tableHead.innerHTML = '';
+                tableBody.innerHTML = '';
+                
+                // 从API响应中提取数据
+                let columns = [];
+                let rows = [];
+                
+                // 获取分页信息
+                const pagination = data.pagination || {
+                    page: page,
+                    per_page: 10,
+                    total_count: data.entries ? data.entries.length : 0,
+                    total_pages: Math.ceil((data.entries ? data.entries.length : 0) / 10)
+                };
+                
+                // 使用API返回的总记录数
+                const totalRows = pagination.total_count;
+                
+                // 只从实际数据条目构建数据
+                if (data.entries && data.entries.length > 0 && data.fields && data.fields.length > 0) {
+                    // 从字段定义中提取列名
+                    columns = data.fields.map(field => field.name);
+                    
+                    // 更新可用筛选字段
+                    updateFilterOptions(columns);
+                    
+                    // 从entries中提取数据行
+                    rows = data.entries.map(entry => {
+                        // 确保entry.data存在
+                        if (!entry.data) {
+                            console.warn("数据条目缺少data字段:", entry);
+                            return columns.map(() => '');
+                        }
+                        return columns.map(column => {
+                            const value = entry.data[column];
+                            return value !== undefined && value !== null ? value : '';
+                        });
+                    });
+                }
+                
+                // 如果没有数据或列定义
+                if (!columns.length || !rows.length) {
+                    let message = '暂无数据';
+                    if (activeFilters && activeFilters.length > 0) {
+                        message = '没有符合筛选条件的数据';
+                    }
+                    
+                    tableBody.innerHTML = 
+                        '<tr>' +
+                        '    <td colspan="5" class="text-center">' +
+                        '        <div class="empty-data-icon"><i class="bi bi-inbox"></i></div>' +
+                        '        <p>' + message + '</p>' +
+                        '    </td>' +
+                        '</tr>';
+                    
+                    // 更新分页信息
+                    if (currentFromElement) currentFromElement.textContent = '0';
+                    if (currentToElement) currentToElement.textContent = '0';
+                    if (totalRecordsElement) totalRecordsElement.textContent = '0';
+                    
+                    // 更新分页控件
+                    updatePaginationControls(1, 1);
+                    return;
+                }
+                
+                // 创建表头
+                const headerRow = document.createElement('tr');
+                
+                // 添加复选框列
+                const checkboxTh = document.createElement('th');
+                checkboxTh.style.width = '40px';
+                
+                // 创建全选/全不选复选框
+                const selectAllCheckbox = document.createElement('input');
+                selectAllCheckbox.type = 'checkbox';
+                selectAllCheckbox.className = 'form-check-input select-all-checkbox';
+                selectAllCheckbox.addEventListener('change', function() {
+                    const isChecked = this.checked;
+                    document.querySelectorAll('.entry-checkbox').forEach(checkbox => {
+                        checkbox.checked = isChecked;
+                    });
+                    updateSelectedCount();
+                });
+                
+                checkboxTh.appendChild(selectAllCheckbox);
+                headerRow.appendChild(checkboxTh);
+                
+                columns.forEach(column => {
+                    const th = document.createElement('th');
+                    th.textContent = column;
+                    headerRow.appendChild(th);
+                });
+                
+                // 添加操作列表头
+                const actionTh = document.createElement('th');
+                actionTh.textContent = '操作';
+                actionTh.style.width = '100px';
+                headerRow.appendChild(actionTh);
+                
+                tableHead.appendChild(headerRow);
+                
+                // 创建表体行
+                rows.forEach((row, rowIndex) => {
+                    const tr = document.createElement('tr');
+                    
+                    // 添加复选框列
+                    const checkboxTd = document.createElement('td');
+                    
+                    // 获取当前行对应的数据条目ID
+                    const entryId = data.entries && data.entries[rowIndex] ? data.entries[rowIndex].id : null;
+                    
+                    if (entryId) {
+                        // 创建复选框
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.className = 'form-check-input entry-checkbox';
+                        checkbox.setAttribute('data-entry-id', entryId);
+                        checkbox.addEventListener('change', updateSelectedCount);
+                        
+                        checkboxTd.appendChild(checkbox);
+                    }
+                    
+                    tr.appendChild(checkboxTd);
+                    
+                    row.forEach((cell, cellIndex) => {
+                        const td = document.createElement('td');
+                        td.textContent = cell !== null ? cell : '';
+                        
+                        // 如果是演示数据，添加浅色背景标记
+                        if (data.entries && data.entries[rowIndex] && data.entries[rowIndex].is_real_data === false) {
+                            td.classList.add('demo-data-cell');
+                            
+                            // 如果是第一列，添加"演示"标记
+                            if (cellIndex === 0) {
+                                const badge = document.createElement('span');
+                                badge.className = 'badge bg-light text-secondary ms-2';
+                                badge.textContent = '演示';
+                                td.appendChild(badge);
+                            }
+                        }
+                        
+                        tr.appendChild(td);
+                    });
+                    
+                    // 添加操作列
+                    const actionTd = document.createElement('td');
+                    actionTd.className = 'text-center';
+                    
+                    if (entryId) {
+                        // 创建删除按钮
+                        const deleteBtn = document.createElement('button');
+                        deleteBtn.className = 'btn btn-sm btn-outline-danger';
+                        deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
+                        deleteBtn.title = '删除数据';
+                        deleteBtn.setAttribute('data-entry-id', entryId);
+                        deleteBtn.onclick = function() {
+                            confirmDeleteEntry(entryId);
+                        };
+                        
+                        actionTd.appendChild(deleteBtn);
+                    }
+                    
+                    tr.appendChild(actionTd);
+                    tableBody.appendChild(tr);
+                });
+                
+                // 更新分页信息
+                const startIndex = (pagination.page - 1) * pagination.per_page;
+                const endIndex = Math.min(pagination.page * pagination.per_page, totalRows);
+                
+                if (currentFromElement) currentFromElement.textContent = totalRows > 0 ? startIndex + 1 : 0;
+                if (currentToElement) currentToElement.textContent = endIndex;
+                if (totalRecordsElement) totalRecordsElement.textContent = totalRows;
+                
+                // 更新分页控件
+                updatePaginationControls(pagination.page, pagination.total_pages);
+                
+                console.log("完整数据加载完成");
+            })
+            .catch(error => {
+                console.error('获取完整数据失败:', error);
+                if (tableBody) {
+                    tableBody.innerHTML = 
+                        '<tr>' +
+                        '    <td colspan="5" class="text-center text-danger">' +
+                        '        <i class="bi bi-exclamation-triangle"></i> 加载失败: ' + error.message +
+                        '    </td>' +
+                        '</tr>';
+                }
+                
+                // 重置分页信息
+                if (currentFromElement) currentFromElement.textContent = '0';
+                if (currentToElement) currentToElement.textContent = '0';
+                if (totalRecordsElement) totalRecordsElement.textContent = '0';
+                
+                // 重置分页控件
+                updatePaginationControls(1, 1);
+            });
+    }
+    
+    // 更新分页控件
+    function updatePaginationControls(page, totalPages) {
+        console.log("更新分页控件，当前页:", page, "总页数:", totalPages);
+        
+        // 更新全局当前页码变量
+        currentPage = page;
+        const paginationContainer = document.querySelector('.pagination');
+        if (!paginationContainer) {
+            console.error("找不到分页容器");
+            return;
+        }
+        
+        // 清除现有页码（保留首尾的上一页/下一页按钮）
+        const pageItems = document.querySelectorAll('.pagination .page-item:not(:first-child):not(:last-child)');
+        pageItems.forEach(item => item.remove());
+        
+        // 获取上一页/下一页按钮
+        const prevButton = document.querySelector('.pagination .page-item:first-child');
+        const nextButton = document.querySelector('.pagination .page-item:last-child');
+        
+        if (!prevButton || !nextButton) {
+            console.error("找不到分页按钮");
+            return;
+        }
+        
+        // 重置所有按钮的禁用状态
+        prevButton.classList.remove('disabled');
+        prevButton.removeAttribute('aria-disabled');
+        nextButton.classList.remove('disabled');
+        nextButton.removeAttribute('aria-disabled');
+        
+        // 如果总页数为0，不显示任何页码
+        if (totalPages <= 0) {
+            prevButton.classList.add('disabled');
+            prevButton.setAttribute('aria-disabled', 'true');
+            nextButton.classList.add('disabled');
+            nextButton.setAttribute('aria-disabled', 'true');
+            return;
+        }
+        
+        // 决定显示哪些页码（优化处理大数据集的分页显示）
+        let startPage, endPage;
+        
+        if (totalPages <= 7) {
+            // 如果总页数少于7，显示所有页码
+            startPage = 1;
+            endPage = totalPages;
+        } else {
+            // 如果总页数大于7，采用更智能的分页显示策略
+            if (page <= 4) {
+                // 当前页靠近开始
+                startPage = 1;
+                endPage = 7;
+            } else if (page >= totalPages - 3) {
+                // 当前页靠近结束
+                startPage = totalPages - 6;
+                endPage = totalPages;
+            } else {
+                // 当前页在中间
+                startPage = page - 3;
+                endPage = page + 3;
+            }
+        }
+        
+        // 检查页码是否超出有效范围，如果是则调整
+        if (page > totalPages) {
+            // 如果当前页超出总页数，自动调整为最后一页
+            console.log(`页码超出范围: ${page} > ${totalPages}，自动调整为最后一页`);
+            setTimeout(() => {
+                loadFullDataset(totalPages || 1);
+            }, 0);
+            return;
+        }
+        
+        // 创建页码按钮
+        const pageLinks = [];
+        
+        // 添加首页按钮（无论如何都显示）
+        if (totalPages > 2) {  // 总页数大于2时才需要特殊的首页按钮
+            const li = document.createElement('li');
+            li.className = 'page-item' + (page === 1 ? ' active' : '');
+            
+            const a = document.createElement('a');
+            a.className = 'page-link';
+            a.href = '#';
+            a.innerHTML = '<i class="bi bi-chevron-double-left"></i>';
+            a.title = '首页';
+            a.dataset.page = 1;
+            
+            li.appendChild(a);
+            pageLinks.push(li);
+            
+            // 如果当前页不是第一页，也不是第二页，添加省略号
+            if (page > 2) {
+                const ellipsis = document.createElement('li');
+                ellipsis.className = 'page-item disabled';
+                
+                const ellipsisSpan = document.createElement('span');
+                ellipsisSpan.className = 'page-link';
+                ellipsisSpan.textContent = '...';
+                
+                ellipsis.appendChild(ellipsisSpan);
+                pageLinks.push(ellipsis);
+            }
+        }
+        
+        // 添加中间的页码按钮 - 只显示当前页附近的页码
+        for (let i = Math.max(startPage, 1); i <= Math.min(endPage, totalPages); i++) {
+            // 对于大数据集，跳过一些中间页码
+            if (totalPages > 10 && i !== startPage && i !== endPage && i !== page && i !== page-1 && i !== page+1) {
+                // 只在合适的位置添加省略号
+                if (i === startPage + 1 || i === endPage - 1) {
+                    const ellipsis = document.createElement('li');
+                    ellipsis.className = 'page-item disabled';
+                    
+                    const ellipsisSpan = document.createElement('span');
+                    ellipsisSpan.className = 'page-link';
+                    ellipsisSpan.textContent = '...';
+                    
+                    ellipsis.appendChild(ellipsisSpan);
+                    pageLinks.push(ellipsis);
+                }
+                continue;
+            }
+            
+            const li = document.createElement('li');
+            li.className = 'page-item ' + (i === page ? 'active' : '');
+            
+            const a = document.createElement('a');
+            a.className = 'page-link';
+            a.href = '#';
+            a.textContent = i;
+            a.dataset.page = i;
+            
+            li.appendChild(a);
+            pageLinks.push(li);
+        }
+        
+        // 添加末页按钮
+        if (totalPages > 2) {  // 总页数大于2时才需要特殊的末页按钮
+            // 如果当前页不是最后一页，也不是倒数第二页，添加省略号
+            if (page < totalPages - 1) {
+                const ellipsis = document.createElement('li');
+                ellipsis.className = 'page-item disabled';
+                
+                const ellipsisSpan = document.createElement('span');
+                ellipsisSpan.className = 'page-link';
+                ellipsisSpan.textContent = '...';
+                
+                ellipsis.appendChild(ellipsisSpan);
+                pageLinks.push(ellipsis);
+            }
+            
+            const li = document.createElement('li');
+            li.className = 'page-item' + (page === totalPages ? ' active' : '');
+            
+            const a = document.createElement('a');
+            a.className = 'page-link';
+            a.href = '#';
+            a.innerHTML = '<i class="bi bi-chevron-double-right"></i>';
+            a.title = '尾页';
+            a.dataset.page = totalPages;
+            
+            li.appendChild(a);
+            pageLinks.push(li);
+        }
+        
+        // 插入页码按钮
+        if (pageLinks.length > 0) {
+            nextButton.insertAdjacentElement('beforebegin', pageLinks[0]);
+            for (let i = 1; i < pageLinks.length; i++) {
+                pageLinks[i-1].insertAdjacentElement('afterend', pageLinks[i]);
+            }
+        }
+        
+        // 更新上一页/下一页按钮状态
+        if (page === 1) {
+            prevButton.classList.add('disabled');
+            prevButton.setAttribute('aria-disabled', 'true');
+        }
+        
+        if (page === totalPages) {
+            nextButton.classList.add('disabled');
+            nextButton.setAttribute('aria-disabled', 'true');
+        }
+        
+        // 绑定页码点击事件
+        paginationContainer.querySelectorAll('.page-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                // 如果按钮已禁用，不执行操作
+                if (this.parentElement.classList.contains('disabled')) {
+                    return;
+                }
+                
+                let targetPage;
+                if (this.textContent === '上一页') {
+                    targetPage = page - 1;
+                } else if (this.textContent === '下一页') {
+                    targetPage = page + 1;
+                } else if (this.dataset.page) {
+                    targetPage = parseInt(this.dataset.page);
+                } else {
+                    // 处理首页/末页图标按钮
+                    if (this.innerHTML.includes('bi-chevron-double-left')) {
+                        targetPage = 1;
+                    } else if (this.innerHTML.includes('bi-chevron-double-right')) {
+                        targetPage = totalPages;
+                    } else {
+                        return; // 无法确定目标页码
+                    }
+                }
+                
+                // 加载目标页数据
+                if (targetPage !== page) {
+                    loadFullDataset(targetPage);
+                }
+            });
+        });
+    }
+    
+    // 更新已选择的数据条目数量
+    function updateSelectedCount() {
+        const selectedCheckboxes = document.querySelectorAll('.entry-checkbox:checked');
+        const count = selectedCheckboxes.length;
+        
+        // 更新计数徽章
+        const countBadge = document.getElementById('selectedCount');
+        if (countBadge) {
+            countBadge.textContent = count;
+        }
+        
+        // 启用或禁用批量删除按钮
+        const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+        if (batchDeleteBtn) {
+            batchDeleteBtn.disabled = count === 0;
+        }
+        
+        // 更新全选复选框状态
+        const allCheckboxes = document.querySelectorAll('.entry-checkbox');
+        const selectAllCheckbox = document.querySelector('.select-all-checkbox');
+        
+        if (selectAllCheckbox) {
+            if (count === 0) {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = false;
+            } else if (count === allCheckboxes.length) {
+                selectAllCheckbox.checked = true;
+                selectAllCheckbox.indeterminate = false;
+            } else {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = true;
+            }
+        }
+    }
+    
+    // 更新筛选标签函数
+    function updateActiveFilterTags() {
+        console.log("更新筛选标签");
+        // 这个函数在没有高级筛选功能时可以是空的
+        // 如果需要实现高级筛选，可以在这里添加代码
+        const tagsContainer = document.getElementById('activeFilterTags');
+        if (!tagsContainer) return;
+        
+        tagsContainer.innerHTML = '';
+        
+        // 更新筛选数量徽章
+        const filterBadge = document.getElementById('filterBadge');
+        if (filterBadge) {
+            if (activeFilters && activeFilters.length > 0) {
+                filterBadge.textContent = activeFilters.length;
+                filterBadge.style.display = 'inline-block';
+            } else {
+                filterBadge.style.display = 'none';
+            }
+        }
+    }
+    
+    // 更新可用筛选字段
+    function updateFilterOptions(columns) {
+        // 保存可用列到全局变量，供高级筛选使用
+        if (columns && columns.length > 0) {
+            availableColumns = [...columns];
+            console.log('更新可用筛选字段:', availableColumns);
+        }
+    }
+    
+    // 添加筛选条件函数
+    function addFilterCondition() {
+        const container = document.getElementById('filterConditionsContainer');
+        if (!container) return;
+        
+        // 移除空状态提示
+        const emptyFilters = container.querySelector('.empty-filters');
+        if (emptyFilters) {
+            emptyFilters.style.display = 'none';
+        }
+        
+        // 创建新的筛选条件
+        const filterCondition = document.createElement('div');
+        filterCondition.className = 'filter-condition';
+        
+        // 检查是否有可用字段，如果没有则尝试加载
+        if (!availableColumns || availableColumns.length === 0) {
+            // 初始化默认字段
+            initDefaultFilterFields();
+            
+            // 尝试从表头获取字段
+            const tableHead = document.getElementById('fullDataTableHead');
+            if (tableHead) {
+                const headerCells = tableHead.querySelectorAll('th');
+                const columns = [];
+                headerCells.forEach(cell => {
+                    const text = cell.textContent.trim();
+                    // 跳过复选框列和操作列
+                    if (text && text !== '操作') {
+                        columns.push(text);
+                    }
+                });
+                if (columns.length > 0) {
+                    availableColumns = columns;
+                    console.log('从表头获取到字段:', availableColumns);
+                }
+            }
+        }
+        
+        // 创建筛选条件内容
+        const fieldOptions = availableColumns.map(col => 
+            `<option value="${col}">${col}</option>`
+        ).join('');
+        
+        filterCondition.innerHTML = `
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <select class="form-select form-select-sm field-select">
+                        <option value="" selected disabled>选择字段</option>
+                        ${fieldOptions}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select form-select-sm operator-select" onchange="toggleValueInputVisibility(this)">
+                        <option value="eq" selected>等于</option>
+                        <option value="neq">不等于</option>
+                        <option value="gt">大于</option>
+                        <option value="gte">大于等于</option>
+                        <option value="lt">小于</option>
+                        <option value="lte">小于等于</option>
+                        <option value="contains">包含</option>
+                        <option value="starts">开头是</option>
+                        <option value="ends">结尾是</option>
+                        <option value="empty">空</option>
+                        <option value="notempty">非空</option>
+                    </select>
+                </div>
+                <div class="col-md-4 value-input-container">
+                    <input type="text" class="form-control form-control-sm filter-value" placeholder="输入值">
+                </div>
+                <div class="col-md-1 d-flex align-items-center">
+                    <i class="bi bi-x-circle remove-filter" title="移除此条件"></i>
+                </div>
+            </div>
+        `;
+        
+        // 添加到容器
+        container.appendChild(filterCondition);
+        
+        // 添加删除条件的事件处理
+        const removeBtn = filterCondition.querySelector('.remove-filter');
+        if (removeBtn) {
+            removeBtn.addEventListener('click', function() {
+                filterCondition.remove();
+                
+                // 如果没有筛选条件了，显示空状态提示
+                if (container.querySelectorAll('.filter-condition').length === 0) {
+                    if (emptyFilters) {
+                        emptyFilters.style.display = 'block';
+                    }
+                }
+            });
+        }
+        
+        // 初始化操作符下拉框，确保页面加载时能正确处理空/非空
+        const operatorSelect = filterCondition.querySelector('.operator-select');
+        if (operatorSelect) {
+            // 初始化调用一次，确保初始状态正确
+            toggleValueInputVisibility(operatorSelect);
+        }
+        
+        // 显示筛选区域
+        const activeFiltersArea = document.getElementById('activeFiltersArea');
+        if (activeFiltersArea) {
+            activeFiltersArea.style.display = 'block';
+        }
+    }
+    
+    // 清除所有筛选条件
+    function clearAllFilters() {
+        // 清空筛选条件容器
+        const container = document.getElementById('filterConditionsContainer');
+        if (container) {
+            // 移除所有筛选条件
+            const conditions = container.querySelectorAll('.filter-condition');
+            conditions.forEach(condition => condition.remove());
+            
+            // 显示空状态提示
+            const emptyFilters = container.querySelector('.empty-filters');
+            if (emptyFilters) {
+                emptyFilters.style.display = 'block';
+            }
+        }
+        
+        // 清空活动筛选标签
+        activeFilters = [];
+        updateActiveFilterTags();
+        
+        // 隐藏活动筛选区域
+        const activeFiltersArea = document.getElementById('activeFiltersArea');
+        if (activeFiltersArea) {
+            activeFiltersArea.style.display = 'none';
+        }
+        
+        // 重新加载数据
+        loadFullDataset(1);
+    }
+    
+    // 应用筛选条件
+    function applyFilters() {
+        // 收集筛选条件
+        const container = document.getElementById('filterConditionsContainer');
+        if (!container) return;
+        
+        const conditions = container.querySelectorAll('.filter-condition');
+        const filters = [];
+        
+        console.log('开始收集筛选条件，共找到', conditions.length, '个条件');
+        
+        conditions.forEach((condition, index) => {
+            const fieldSelect = condition.querySelector('.field-select');
+            const operatorSelect = condition.querySelector('.operator-select');
+            const valueInput = condition.querySelector('.filter-value');
+            
+            if (fieldSelect && operatorSelect && valueInput) {
+                const field = fieldSelect.value;
+                const operator = operatorSelect.value;
+                const value = valueInput.value.trim();
+                
+                console.log(`条件 ${index + 1}:`, { field, operator, value });
+                
+                if (field && operator) {
+                    // 对于"空"和"非空"条件，不需要value值
+                    if (operator === 'empty' || operator === 'notempty') {
+                        filters.push({
+                            field,
+                            operator,
+                            value: '' // 对于空/非空操作，value可以为空字符串
+                        });
+                    } else if (value) {
+                        // 对于其他操作符，需要确保value有值
+                        filters.push({
+                            field,
+                            operator,
+                            value
+                        });
+                    } else {
+                        console.warn(`条件 ${index + 1} 值为空:`, { field, operator, value });
+                    }
+                } else {
+                    console.warn(`条件 ${index + 1} 不完整:`, { field, operator, value });
+                }
+            } else {
+                console.error(`条件 ${index + 1} 缺少必要元素:`, { 
+                    hasFieldSelect: !!fieldSelect, 
+                    hasOperatorSelect: !!operatorSelect, 
+                    hasValueInput: !!valueInput 
+                });
+            }
+        });
+        
+        console.log('收集到有效筛选条件:', filters.length, '个');
+        
+        // 更新活动筛选条件
+        activeFilters = filters;
+        
+        // 更新筛选标签
+        updateActiveFilterTags();
+        
+        // 显示活动筛选区域
+        const activeFiltersArea = document.getElementById('activeFiltersArea');
+        if (activeFiltersArea && filters.length > 0) {
+            activeFiltersArea.style.display = 'block';
+        } else if (activeFiltersArea) {
+            activeFiltersArea.style.display = 'none';
+        }
+        
+        // 隐藏高级筛选区域
+        const advancedFiltersArea = document.getElementById('advancedFiltersArea');
+        if (advancedFiltersArea) {
+            advancedFiltersArea.style.display = 'none';
+        }
+        
+        // 更新按钮状态
+        const toggleAdvancedFiltersBtn = document.getElementById('toggleAdvancedFiltersBtn');
+        if (toggleAdvancedFiltersBtn) {
+            toggleAdvancedFiltersBtn.innerHTML = '<i class="bi bi-funnel"></i> 高级筛选';
+            if (filters.length > 0) {
+                toggleAdvancedFiltersBtn.classList.add('active');
+            } else {
+                toggleAdvancedFiltersBtn.classList.remove('active');
+            }
+        }
+        
+        // 显示筛选状态
+        if (filters.length > 0) {
+            console.log('应用筛选条件:', filters);
+            
+            // 显示筛选信息
+            const filterInfoDisplay = document.getElementById('filterInfoDisplay');
+            const filterInfoText = document.getElementById('filterInfoText');
+            if (filterInfoDisplay && filterInfoText) {
+                filterInfoDisplay.style.display = 'inline-block';
+                filterInfoText.textContent = `已筛选 ${filters.length} 个条件`;
+            }
+        } else {
+            console.log('清除所有筛选条件');
+            
+            // 隐藏筛选信息
+            const filterInfoDisplay = document.getElementById('filterInfoDisplay');
+            if (filterInfoDisplay) {
+                filterInfoDisplay.style.display = 'none';
+            }
+        }
+        
+        // 重新加载数据
+        loadFullDataset(1);
+    }
+    
+    // 导出数据集
+    function exportDataset() {
+        // 创建导出模态框
+        const exportModal = document.createElement('div');
+        exportModal.className = 'modal fade';
+        exportModal.id = 'exportDatasetModal';
+        exportModal.setAttribute('tabindex', '-1');
+        exportModal.setAttribute('aria-labelledby', 'exportDatasetModalLabel');
+        exportModal.setAttribute('aria-hidden', 'true');
+        
+        exportModal.innerHTML = `
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="exportDatasetModalLabel">导出数据</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="exportForm">
+                            <div class="mb-3">
+                                <label class="form-label">导出格式</label>
+                                <div class="d-flex gap-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="exportFormat" id="formatCSV" value="csv" checked>
+                                        <label class="form-check-label" for="formatCSV">CSV</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="exportFormat" id="formatExcel" value="excel">
+                                        <label class="form-check-label" for="formatExcel">Excel</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="exportFormat" id="formatJSON" value="json">
+                                        <label class="form-check-label" for="formatJSON">JSON</label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">导出范围</label>
+                                <div class="d-flex gap-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="exportScope" id="scopeAll" value="all" checked>
+                                        <label class="form-check-label" for="scopeAll">全部数据</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="exportScope" id="scopeFiltered" value="filtered">
+                                        <label class="form-check-label" for="scopeFiltered">当前筛选结果</label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">数据脱敏</label>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="anonymizeData">
+                                    <label class="form-check-label" for="anonymizeData">启用数据脱敏</label>
+                                </div>
+                                <div class="form-text">启用后将对敏感信息（如姓名、身份证号等）进行脱敏处理</div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="button" class="btn btn-primary" id="confirmExportBtn">
+                            <i class="bi bi-download"></i> 确认导出
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // 添加到文档中
+        document.body.appendChild(exportModal);
+        
+        // 初始化Bootstrap模态框
+        const modal = new bootstrap.Modal(exportModal);
+        modal.show();
+        
+        // 绑定确认导出按钮事件
+        document.getElementById('confirmExportBtn').addEventListener('click', function() {
+            // 获取导出选项
+            const format = document.querySelector('input[name="exportFormat"]:checked').value;
+            const scope = document.querySelector('input[name="exportScope"]:checked').value;
+            const anonymize = document.getElementById('anonymizeData').checked;
+            
+            // 显示导出中状态
+            this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 导出中...';
+            this.disabled = true;
+            
+            // 构建导出URL
+            let exportUrl = `/api/datasets/${datasetId}/export?format=${format}&anonymize=${anonymize}`;
+            
+            // 如果是筛选结果，添加筛选参数
+            if (scope === 'filtered' && activeFilters.length > 0) {
+                console.log('导出筛选结果，当前有筛选条件:', activeFilters);
+                
+                // 将筛选条件转换为后端期望的格式
+                const backendFilters = activeFilters.map(filter => {
+                    // 转换操作符
+                    let operator;
+                    switch (filter.operator) {
+                        case 'eq': operator = 'equals'; break;
+                        case 'neq': operator = 'notEquals'; break;
+                        case 'gt': operator = 'greaterThan'; break;
+                        case 'gte': operator = 'greaterThanOrEqual'; break;
+                        case 'lt': operator = 'lessThan'; break;
+                        case 'lte': operator = 'lessThanOrEqual'; break;
+                        case 'contains': operator = 'contains'; break;
+                        case 'starts': operator = 'startsWith'; break;
+                        case 'ends': operator = 'endsWith'; break;
+                        case 'empty': 
+                            operator = 'equals'; 
+                            // 使用空字符串作为比较值
+                            filter.value = '';
+                            break;
+                        case 'notempty': 
+                            operator = 'notEquals'; 
+                            // 使用空字符串作为比较值
+                            filter.value = '';
+                            break;
+                        default: operator = 'equals';
+                    }
+                    
+                    // 所有条件都使用统一的格式，包含value字段
+                    return {
+                        field: filter.field,
+                        operator: operator,
+                        value: filter.value
+                    };
+                });
+                
+                // 添加高级筛选参数
+                const filtersJson = JSON.stringify(backendFilters);
+                console.log('导出筛选条件JSON:', filtersJson);
+                exportUrl += '&advanced_filters=' + encodeURIComponent(filtersJson);
+                console.log('完整导出URL:', exportUrl);
+            } else {
+                console.log('导出全部数据，未应用筛选条件');
+            }
+            
+            // 直接触发下载
+            console.log('开始下载，URL:', exportUrl);
+            window.location.href = exportUrl;
+            
+            // 关闭模态框并显示成功提示
+            setTimeout(() => {
+                // 关闭模态框
+                modal.hide();
+                
+                // 显示成功提示
+                showToast('导出成功', '数据导出请求已发送', 'success');
+                
+                // 移除模态框
+                document.body.removeChild(exportModal);
+            }, 1000);
+        });
+        
+        // 模态框关闭后移除DOM
+        exportModal.addEventListener('hidden.bs.modal', function() {
+            document.body.removeChild(exportModal);
+        });
+    }
+    
+    // 更新活动筛选标签
+    function updateActiveFilterTags() {
+        console.log("更新筛选标签");
+        const tagsContainer = document.getElementById('activeFilterTags');
+        if (!tagsContainer) return;
+        
+        tagsContainer.innerHTML = '';
+        
+        // 如果有活动筛选条件，创建标签
+        if (activeFilters && activeFilters.length > 0) {
+            activeFilters.forEach((filter, index) => {
+                const tag = document.createElement('div');
+                
+                // 设置基本样式类，并为空值和非空值添加特殊样式
+                if (filter.operator === 'empty') {
+                    tag.className = 'filter-tag empty-tag';
+                } else if (filter.operator === 'notempty') {
+                    tag.className = 'filter-tag notempty-tag';
+                } else {
+                    tag.className = 'filter-tag';
+                }
+                
+                // 获取操作符文本
+                let operatorText = '';
+                switch (filter.operator) {
+                    case 'eq': operatorText = '等于'; break;
+                    case 'neq': operatorText = '不等于'; break;
+                    case 'gt': operatorText = '大于'; break;
+                    case 'gte': operatorText = '大于等于'; break;
+                    case 'lt': operatorText = '小于'; break;
+                    case 'lte': operatorText = '小于等于'; break;
+                    case 'contains': operatorText = '包含'; break;
+                    case 'starts': operatorText = '开头是'; break;
+                    case 'ends': operatorText = '结尾是'; break;
+                    case 'empty': operatorText = '为空'; break;
+                    case 'notempty': operatorText = '非空'; break;
+                    default: operatorText = filter.operator;
+                }
+                
+                // 对于"空"和"非空"操作符，不显示值部分
+                let tagContent = '';
+                if (filter.operator === 'empty' || filter.operator === 'notempty') {
+                    tagContent = `${filter.field} ${operatorText}`;
+                } else {
+                    tagContent = `${filter.field} ${operatorText} "${filter.value}"`;
+                }
+                
+                tag.innerHTML = `
+                    ${tagContent}
+                    <span class="remove-tag" data-index="${index}">×</span>
+                `;
+                
+                tagsContainer.appendChild(tag);
+                
+                // 添加删除标签的事件
+                const removeTag = tag.querySelector('.remove-tag');
+                if (removeTag) {
+                    removeTag.addEventListener('click', function() {
+                        const tagIndex = parseInt(this.getAttribute('data-index'));
+                        activeFilters.splice(tagIndex, 1);
+                        updateActiveFilterTags();
+                        
+                        // 如果没有筛选条件了，隐藏活动筛选区域
+                        if (activeFilters.length === 0) {
+                            const activeFiltersArea = document.getElementById('activeFiltersArea');
+                            if (activeFiltersArea) {
+                                activeFiltersArea.style.display = 'none';
+                            }
+                        }
+                        
+                        // 重新加载数据
+                        loadFullDataset(1);
+                    });
+                }
+            });
+        }
+        
+        // 更新筛选数量徽章
+        const filterBadge = document.getElementById('filterBadge');
+        if (filterBadge) {
+            if (activeFilters && activeFilters.length > 0) {
+                filterBadge.textContent = activeFilters.length;
+                filterBadge.style.display = 'inline-block';
+            } else {
+                filterBadge.style.display = 'none';
+            }
+        }
+    }
+    
+    // 更新可用筛选字段
+    function updateFilterOptions(columns) {
+        // 保存可用列到全局变量，供高级筛选使用
+        if (columns && columns.length > 0) {
+            availableColumns = [...columns];
+        }
+    }
+
+    // 加载字段分组数据
+    function loadFieldGroups() {
+        const container = document.getElementById('fieldGroupsContainer');
+        if (!container) {
+            console.error("找不到字段分组容器元素");
+            return;
+        }
+
+        // 从API获取数据集信息和字段完整度数据
+        Promise.all([
+            fetch(`/api/datasets/${datasetId}/info`).then(res => res.json()),
+            fetch(`/api/datasets/${datasetId}/field_completeness`).then(res => res.json())
+        ])
+        .then(([infoData, completenessData]) => {
+            console.log("获取到数据集信息:", infoData);
+            console.log("获取到字段完整度数据:", completenessData);
+
+            if (!infoData.success || !completenessData.success) {
+                throw new Error("获取数据失败");
+            }
+
+            // 解析自定义字段
+            let customFields = [];
+            try {
+                if (infoData.custom_fields) {
+                    customFields = JSON.parse(infoData.custom_fields);
+                }
+            } catch (e) {
+                console.error("解析自定义字段失败:", e);
+            }
+
+            // 按分组组织字段
+            const fieldGroups = {};
+            customFields.forEach(field => {
+                const groupName = field.group || '未分组';
+                if (!fieldGroups[groupName]) {
+                    fieldGroups[groupName] = {
+                        name: groupName,
+                        fields: [],
+                        total_records: completenessData.total_records || 0,
+                        missing_count: 0
+                    };
+                }
+                
+                // 查找字段完整度数据
+                const completenessInfo = completenessData.fields.find(f => f.name === field.name);
+                const fieldCount = completenessInfo ? completenessInfo.count : 0;
+                const missingCount = (completenessData.total_records || 0) - fieldCount;
+                
+                // 添加字段到分组
+                fieldGroups[groupName].fields.push({
+                    ...field,
+                    count: fieldCount,
+                    missing: missingCount
+                });
+                
+                // 累加分组的缺失数据计数
+                fieldGroups[groupName].missing_count += missingCount;
+            });
+
+            // 计算每个分组的缺失率
+            Object.values(fieldGroups).forEach(group => {
+                const totalPossible = group.total_records * group.fields.length;
+                group.missing_rate = totalPossible > 0 ? (group.missing_count / totalPossible) * 100 : 0;
+            });
+
+            // 渲染字段分组
+            renderFieldGroups(Object.values(fieldGroups));
+        })
+        .catch(error => {
+            console.error("获取字段分组数据失败:", error);
+            container.innerHTML = `
+                <div class="empty-field-groups">
+                    <div class="empty-icon">
+                        <i class="bi bi-list-columns"></i>
+                    </div>
+                    <div>无法加载字段分组数据</div>
+                    <div class="text-muted mt-2 small">错误: ${error.message}</div>
+                </div>
+            `;
+        });
+    }
+
+    // 渲染字段分组
+    function renderFieldGroups(groups) {
+        const container = document.getElementById('fieldGroupsContainer');
+        if (!container) return;
+
+        // 清空容器
+        container.innerHTML = '';
+
+        if (!groups || groups.length === 0) {
+            container.innerHTML = `
+                <div class="empty-field-groups">
+                    <div class="empty-icon">
+                        <i class="bi bi-list-columns"></i>
+                    </div>
+                    <div>数据集字段未进行分组</div>
+                </div>
+            `;
+            return;
+        }
+
+        // 按字段数量排序分组（从多到少）
+        groups.sort((a, b) => b.fields.length - a.fields.length);
+
+        // 创建表格
+        const table = document.createElement('table');
+        table.className = 'field-groups-table';
+        
+        // 添加表头
+        const thead = document.createElement('thead');
+        thead.innerHTML = `
+            <tr>
+                <th style="width: 30%">分组名称</th>
+                <th style="width: 20%">字段数量</th>
+                <th style="width: 20%">数据量</th>
+                <th style="width: 30%">缺失率</th>
+            </tr>
+        `;
+        table.appendChild(thead);
+        
+        // 添加表体
+        const tbody = document.createElement('tbody');
+        
+        // 渲染每个分组
+        groups.forEach(group => {
+            const row = document.createElement('tr');
+            
+            // 计算缺失率样式
+            let missingRateClass = 'low';
+            if (group.missing_rate > 20) {
+                missingRateClass = 'high';
+            } else if (group.missing_rate > 10) {
+                missingRateClass = 'medium';
+            }
+            
+            // 为每个分组创建图标
+            let groupIcon = 'bi-folder';
+            const groupName = group.name.toLowerCase();
+            if (groupName.includes('基本') || groupName.includes('患者')) {
+                groupIcon = 'bi-person-vcard';
+            } else if (groupName.includes('诊断') || groupName.includes('检查')) {
+                groupIcon = 'bi-clipboard2-pulse';
+            } else if (groupName.includes('治疗') || groupName.includes('用药')) {
+                groupIcon = 'bi-capsule';
+            } else if (groupName.includes('随访') || groupName.includes('预后')) {
+                groupIcon = 'bi-calendar-check';
+            } else if (groupName.includes('病史') || groupName.includes('既往')) {
+                groupIcon = 'bi-journal-medical';
+            } else if (groupName.includes('实验室') || groupName.includes('检验')) {
+                groupIcon = 'bi-eyedropper';
+            } else if (groupName.includes('影像') || groupName.includes('图像')) {
+                groupIcon = 'bi-image-alt';
+            }
+
+            row.innerHTML = `
+                <td>
+                    <div class="field-group-name">
+                        <i class="bi ${groupIcon}"></i>
+                        ${group.name}
+                    </div>
+                </td>
+                <td>
+                    <span class="field-count">${group.fields.length} 个字段</span>
+                </td>
+                <td>${group.total_records} 条</td>
+                <td>
+                    <span class="missing-rate ${missingRateClass}">
+                        ${group.missing_rate.toFixed(1)}%
+                    </span>
+                </td>
+            `;
+            
+            tbody.appendChild(row);
+        });
+        
+        table.appendChild(tbody);
+        container.appendChild(table);
+    }
+});
+
+// 添加确认删除数据的函数
+function confirmDeleteEntry(entryId) {
+    if (!entryId) return;
+    
+    // 创建确认对话框
+    const confirmDialog = document.createElement('div');
+    confirmDialog.className = 'modal fade';
+    confirmDialog.id = 'confirmDeleteModal';
+    confirmDialog.setAttribute('tabindex', '-1');
+    confirmDialog.setAttribute('aria-labelledby', 'confirmDeleteModalLabel');
+    confirmDialog.setAttribute('aria-hidden', 'true');
+    
+    confirmDialog.innerHTML = `
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="confirmDeleteModalLabel">确认删除</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p><i class="bi bi-exclamation-triangle text-warning"></i> 确定要删除这条数据吗？此操作不可恢复。</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+                        <i class="bi bi-trash"></i> 确认删除
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // 添加到文档中
+    document.body.appendChild(confirmDialog);
+    
+    // 初始化Bootstrap模态框
+    const modal = new bootstrap.Modal(confirmDialog);
+    modal.show();
+    
+    // 绑定确认删除按钮事件
+    document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+        deleteDataEntry(entryId, modal);
+    });
+    
+    // 模态框关闭后移除DOM
+    confirmDialog.addEventListener('hidden.bs.modal', function() {
+        document.body.removeChild(confirmDialog);
+    });
+}
+
+// 删除数据条目的函数
+function deleteDataEntry(entryId, modal) {
+    // 显示删除中状态
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+    confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 删除中...';
+    confirmBtn.disabled = true;
+    
+    // 发送删除请求
+    fetch('/api/datasets/entries/' + entryId, {
+        method: 'DELETE',
+        headers: {
+            'X-CSRFToken': getCsrfToken(),
+            'Content-Type': 'application/json'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('删除数据失败，状态码: ' + response.status);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            // 关闭模态框
+            modal.hide();
+            
+            // 显示删除成功提示
+            showToast('删除成功', '数据已成功删除', 'success');
+            // 刷新数据集大小信息
+            refreshDatasetInfo(data.dataset_id);
+            // 如果在预览页面，也重新加载预览数据
+            loadDatasetPreview();
+            // 重新加载数据
+            loadFullDataset(currentPage);
+            
+            
+            
+            
+        } else {
+            throw new Error(data.message || '删除数据失败');
+        }
+    })
+    .catch(error => {
+        console.error('删除数据失败:', error);
+        
+        // 显示错误提示
+        showToast('删除失败', error.message, 'danger');
+        
+        // 恢复按钮状态
+        confirmBtn.innerHTML = '<i class="bi bi-trash"></i> 确认删除';
+        confirmBtn.disabled = false;
+    });
+}
+
+// 显示Toast提示的函数
+function showToast(title, message, type = 'info') {
+    // 创建Toast元素
+    const toastEl = document.createElement('div');
+    toastEl.className = 'toast position-fixed bottom-0 end-0 m-3';
+    toastEl.setAttribute('role', 'alert');
+    toastEl.setAttribute('aria-live', 'assertive');
+    toastEl.setAttribute('aria-atomic', 'true');
+    
+    // 设置自动隐藏延时
+    toastEl.setAttribute('data-bs-delay', '3000');
+    
+    // 设置Toast内容
+    toastEl.innerHTML = `
+        <div class="toast-header bg-${type} text-white">
+            <strong class="me-auto">${title}</strong>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body">
+            ${message}
+        </div>
+    `;
+    
+    // 添加到文档中
+    document.body.appendChild(toastEl);
+    
+    // 初始化Bootstrap Toast
+    const toast = new bootstrap.Toast(toastEl);
+    toast.show();
+    
+    // Toast隐藏后移除DOM
+    toastEl.addEventListener('hidden.bs.toast', function() {
+        document.body.removeChild(toastEl);
+    });
+}
+
+// 获取CSRF令牌的函数
+function getCsrfToken() {
+    // 尝试从meta标签获取
+    const metaTag = document.querySelector('meta[name="csrf-token"]');
+    if (metaTag) {
+        return metaTag.getAttribute('content');
+    }
+    
+    // 尝试从表单中获取
+    const csrfInput = document.querySelector('input[name="csrf_token"]');
+    if (csrfInput) {
+        return csrfInput.value;
+    }
+    
+    return '';
+}
+
+// 刷新数据集信息
+function refreshDatasetInfo(datasetId) {
+    if (!datasetId) return;
+    
+    // 发送请求获取最新的数据集信息
+    fetch('/api/datasets/' + datasetId + '/info')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('获取数据集信息失败');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // 更新数据量显示
+                const sizeElement = document.querySelector('.metadata-item .bi-files').parentElement.querySelector('span');
+                if (sizeElement) {
+                    sizeElement.textContent = `数据量: ${data.size || 0} 条`;
+                }
+                
+                // 如果有其他需要更新的信息，可以在这里添加
+                console.log('数据集信息已刷新');
+            }
+        })
+        .catch(error => {
+            console.error('刷新数据集信息失败:', error);
+        });
+}
+
+// 批量删除功能
+function batchDelete() {
+    const selectedCheckboxes = document.querySelectorAll('.entry-checkbox:checked');
+    if (selectedCheckboxes.length === 0) return;
+    
+    const selectedIds = Array.from(selectedCheckboxes).map(checkbox => checkbox.getAttribute('data-entry-id'));
+    
+    // 创建确认对话框
+    const confirmDialog = document.createElement('div');
+    confirmDialog.className = 'modal fade';
+    confirmDialog.id = 'confirmBatchDeleteModal';
+    confirmDialog.setAttribute('tabindex', '-1');
+    confirmDialog.setAttribute('aria-labelledby', 'confirmBatchDeleteModalLabel');
+    confirmDialog.setAttribute('aria-hidden', 'true');
+    
+    confirmDialog.innerHTML = `
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="confirmBatchDeleteModalLabel">确认批量删除</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p><i class="bi bi-exclamation-triangle text-warning"></i> 确定要删除选中的 ${selectedIds.length} 条数据吗？此操作不可恢复。</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-danger" id="confirmBatchDeleteBtn">
+                        <i class="bi bi-trash"></i> 确认删除
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // 添加到文档中
+    document.body.appendChild(confirmDialog);
+    
+    // 初始化Bootstrap模态框
+    const modal = new bootstrap.Modal(confirmDialog);
+    modal.show();
+    
+    // 绑定确认删除按钮事件
+    document.getElementById('confirmBatchDeleteBtn').addEventListener('click', function() {
+        executeBatchDelete(selectedIds, modal);
+    });
+    
+    // 模态框关闭后移除DOM
+    confirmDialog.addEventListener('hidden.bs.modal', function() {
+        document.body.removeChild(confirmDialog);
+    });
+}
+
+// 执行批量删除操作
+function executeBatchDelete(entryIds, modal) {
+    // 显示删除中状态
+    const confirmBtn = document.getElementById('confirmBatchDeleteBtn');
+    confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 删除中...';
+    confirmBtn.disabled = true;
+    
+    // 计数器，用于跟踪完成的删除操作
+    let completedCount = 0;
+    let successCount = 0;
+    let failCount = 0;
+    let datasetId = null;
+    
+    // 依次删除每个条目
+    entryIds.forEach(entryId => {
+        fetch('/api/datasets/entries/' + entryId, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCsrfToken(),
+                'Content-Type': 'application/json'
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('删除数据失败，状态码: ' + response.status);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                successCount++;
+                // 保存数据集ID，用于后续刷新
+                if (!datasetId && data.dataset_id) {
+                    datasetId = data.dataset_id;
+                }
+            } else {
+                failCount++;
+            }
+        })
+        .catch(error => {
+            console.error('删除数据失败:', error);
+            failCount++;
+        })
+        .finally(() => {
+            completedCount++;
+            
+            // 当所有删除操作完成时
+            if (completedCount === entryIds.length) {
+                // 关闭模态框
+                modal.hide();
+                
+                // 显示结果提示
+                if (failCount === 0) {
+                    showToast('批量删除成功', `成功删除了 ${successCount} 条数据`, 'success');
+                } else if (successCount === 0) {
+                    showToast('批量删除失败', `所有 ${failCount} 条数据删除失败`, 'danger');
+                } else {
+                    showToast('批量删除部分成功', `成功删除了 ${successCount} 条数据，${failCount} 条数据删除失败`, 'warning');
+                }
+                
+                // 刷新数据集大小信息
+                if (datasetId) {
+                    refreshDatasetInfo(datasetId);
+                }
+                
+                // 如果在预览页面，也重新加载预览数据
+                loadDatasetPreview();
+                
+                // 重新加载数据
+                loadFullDataset(currentPage);
+            }
+        });
+    });
+}
+
+// 切换值输入框可见性的函数
+function toggleValueInputVisibility(selectElement) {
+    const operator = selectElement.value;
+    const valueContainer = selectElement.closest('.row').querySelector('.value-input-container');
+    const valueInput = valueContainer.querySelector('.filter-value');
+    
+    console.log('toggleValueInputVisibility 被调用:', operator);
+    
+    if (operator === 'empty' || operator === 'notempty') {
+        // 对于"空"和"非空"操作符，我们仍然需要传递一个空字符串值，但对用户隐藏输入框
+        valueContainer.style.display = 'none';
+        // 设置为空字符串而不是清空，确保值会被传递给后端
+        valueInput.value = '';
+        console.log('隐藏值输入框并设置空字符串，操作符:', operator);
+    } else {
+        // 对于其他操作符，显示值输入框
+        valueContainer.style.display = 'block';
+        console.log('显示值输入框，操作符:', operator);
+    }
+}
+
+</script>
+{% endblock %}

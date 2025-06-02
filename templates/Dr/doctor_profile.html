@@ -1,0 +1,935 @@
+{% extends "clinical_base.html" %}
+
+{% block title %}个人资料 - 医学临床科研专病数据管理平台{% endblock %}
+
+{% block content %}
+<!-- 顶部导航栏 -->
+<div class="top-navigation">
+    <div class="top-nav-left">
+        <div class="content-title">
+            个人资料 <i class="bi bi-person-badge"></i>
+        </div>
+    </div>
+</div>
+
+<!-- 主内容区域容器 -->
+<div class="main-container">
+    <!-- 主内容区域 -->
+    <div class="profile-container">
+        <!-- 左侧：个人信息 -->
+        <div class="profile-info-section">
+            <!-- 个人资料卡片 -->
+            <div class="clinical-info-box">
+                <div class="info-box-title">
+                    <i class="bi bi-person-circle"></i> 基本信息
+                    <button class="edit-profile-btn" data-bs-toggle="modal" data-bs-target="#editProfileModal">
+                        <i class="bi bi-pencil"></i> 编辑
+                    </button>
+                </div>
+                <div class="info-box-content">
+                    <div class="profile-details">
+                        <div class="profile-avatar">
+                            {% if current_user.avatar %}
+                            <img src="{{ url_for('static', filename='uploads/avatars/' + current_user.avatar) }}" alt="用户头像">
+                            {% else %}
+                            <div class="avatar-placeholder">
+                                <i class="bi bi-person"></i>
+                            </div>
+                            {% endif %}
+                            <button class="change-avatar-btn" data-bs-toggle="modal" data-bs-target="#changeAvatarModal">
+                                <i class="bi bi-camera"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="profile-info">
+                            <div class="profile-name">{{ current_user.name }}</div>
+                            <div class="profile-title">{{ current_user.title }}</div>
+                            <div class="profile-department">{{ current_user.department }}</div>
+                            <div class="profile-badge">
+                                <i class="bi bi-patch-check-fill"></i> 认证医师
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="profile-data">
+                        <div class="data-item">
+                            <div class="data-label">医师编号</div>
+                            <div class="data-value">{{ current_user.doctor_id }}</div>
+                        </div>
+                        <div class="data-item">
+                            <div class="data-label">专业职称</div>
+                            <div class="data-value">{{ current_user.professional_title }}</div>
+                        </div>
+                        <div class="data-item">
+                            <div class="data-label">电子邮箱</div>
+                            <div class="data-value">{{ current_user.email }}</div>
+                        </div>
+                        <div class="data-item">
+                            <div class="data-label">联系电话</div>
+                            <div class="data-value">{{ current_user.phone }}</div>
+                        </div>
+                        <div class="data-item">
+                            <div class="data-label">注册时间</div>
+                            <div class="data-value">{{ current_user.created_at.strftime('%Y-%m-%d') }}</div>
+                        </div>
+                        <div class="data-item">
+                            <div class="data-label">最近登录</div>
+                            <div class="data-value">{{ current_user.last_login.strftime('%Y-%m-%d %H:%M') }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 研究专长 -->
+            <div class="clinical-info-box">
+                <div class="info-box-title">
+                    <i class="bi bi-journal-medical"></i> 研究专长
+                    <button class="edit-specialties-btn" data-bs-toggle="modal" data-bs-target="#editSpecialtiesModal">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                </div>
+                <div class="info-box-content">
+                    {% if current_user.specialties %}
+                    <div class="specialties-list">
+                        {% for specialty in current_user.specialties %}
+                        <div class="specialty-item">
+                            <div class="specialty-icon">
+                                <i class="bi bi-tag"></i>
+                            </div>
+                            <div class="specialty-name">{{ specialty.name }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="empty-specialties">
+                        <p>您还未添加研究专长</p>
+                        <button class="add-specialty-btn" data-bs-toggle="modal" data-bs-target="#editSpecialtiesModal">
+                            <i class="bi bi-plus-circle"></i> 添加专长
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- 右侧：账户和活动 -->
+        <div class="profile-activity-section">
+            <!-- 账户安全 -->
+            <div class="clinical-info-box">
+                <div class="info-box-title">
+                    <i class="bi bi-shield-lock"></i> 账户安全
+                </div>
+                <div class="info-box-content">
+                    <div class="security-items">
+                        <div class="security-item">
+                            <div class="security-info">
+                                <div class="security-icon">
+                                    <i class="bi bi-key"></i>
+                                </div>
+                                <div class="security-details">
+                                    <div class="security-title">登录密码</div>
+                                    <div class="security-status">最近更新: {{ current_user.password_updated_at.strftime('%Y-%m-%d') }}</div>
+                                </div>
+                            </div>
+                            <button class="clinical-button secondary sm" data-bs-toggle="modal" data-bs-target="#changePasswordModal">
+                                修改
+                            </button>
+                        </div>
+                        
+                        <div class="security-item">
+                            <div class="security-info">
+                                <div class="security-icon">
+                                    <i class="bi bi-phone"></i>
+                                </div>
+                                <div class="security-details">
+                                    <div class="security-title">手机验证</div>
+                                    <div class="security-status">{{ current_user.phone }}</div>
+                                </div>
+                            </div>
+                            <button class="clinical-button secondary sm" data-bs-toggle="modal" data-bs-target="#changePhoneModal">
+                                修改
+                            </button>
+                        </div>
+                        
+                        <div class="security-item">
+                            <div class="security-info">
+                                <div class="security-icon">
+                                    <i class="bi bi-envelope"></i>
+                                </div>
+                                <div class="security-details">
+                                    <div class="security-title">邮箱验证</div>
+                                    <div class="security-status">{{ current_user.email }}</div>
+                                </div>
+                            </div>
+                            <button class="clinical-button secondary sm" data-bs-toggle="modal" data-bs-target="#changeEmailModal">
+                                修改
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 最近活动 -->
+            <div class="clinical-info-box">
+                <div class="info-box-title">
+                    <i class="bi bi-activity"></i> 最近活动
+                </div>
+                <div class="info-box-content">
+                    {% if user_activities and user_activities|length > 0 %}
+                    <div class="activity-timeline">
+                        {% for activity in user_activities %}
+                        <div class="activity-item">
+                            <div class="activity-icon {{ activity.type }}">
+                                <i class="bi {{ activity.icon }}"></i>
+                            </div>
+                            <div class="activity-content">
+                                <div class="activity-title">{{ activity.title }}</div>
+                                <div class="activity-details">{{ activity.description }}</div>
+                                <div class="activity-time">{{ activity.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="empty-activities">
+                        <div class="empty-icon">
+                            <i class="bi bi-activity"></i>
+                        </div>
+                        <p>暂无活动记录</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- 项目摘要 -->
+            <div class="clinical-info-box">
+                <div class="info-box-title">
+                    <i class="bi bi-kanban"></i> 项目摘要
+                </div>
+                <div class="info-box-content">
+                    <div class="projects-summary">
+                        <div class="summary-stat-grid">
+                            <div class="summary-stat-card">
+                                <div class="stat-number">{{ project_stats.total }}</div>
+                                <div class="stat-label">总项目数</div>
+                            </div>
+                            <div class="summary-stat-card">
+                                <div class="stat-number">{{ project_stats.active }}</div>
+                                <div class="stat-label">进行中</div>
+                            </div>
+                            <div class="summary-stat-card">
+                                <div class="stat-number">{{ project_stats.completed }}</div>
+                                <div class="stat-label">已完成</div>
+                            </div>
+                            <div class="summary-stat-card">
+                                <div class="stat-number">{{ project_stats.datasets }}</div>
+                                <div class="stat-label">使用数据集</div>
+                            </div>
+                        </div>
+                        
+                        <a href="{{ url_for('doctor_my_projects') }}" class="view-all-projects">
+                            查看全部项目 <i class="bi bi-arrow-right"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 编辑个人资料模态框 -->
+<div class="modal fade" id="editProfileModal" tabindex="-1" aria-labelledby="editProfileModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editProfileModalLabel">编辑个人资料</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                                <form id="profileForm" method="POST" action="{{ url_for('update_profile') }}">                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    
+                    <div class="mb-3">
+                        <label for="name" class="form-label">姓名</label>
+                        <input type="text" class="form-control" id="name" name="name" value="{{ current_user.name }}" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="title" class="form-label">职称</label>
+                        <input type="text" class="form-control" id="title" name="title" value="{{ current_user.title }}">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="department" class="form-label">科室/部门</label>
+                        <input type="text" class="form-control" id="department" name="department" value="{{ current_user.department }}">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="professional_title" class="form-label">专业职称</label>
+                        <select class="form-control" id="professional_title" name="professional_title">
+                            <option value="">-- 请选择 --</option>
+                            <option value="主任医师" {% if current_user.professional_title == '主任医师' %}selected{% endif %}>主任医师</option>
+                            <option value="副主任医师" {% if current_user.professional_title == '副主任医师' %}selected{% endif %}>副主任医师</option>
+                            <option value="主治医师" {% if current_user.professional_title == '主治医师' %}selected{% endif %}>主治医师</option>
+                            <option value="住院医师" {% if current_user.professional_title == '住院医师' %}selected{% endif %}>住院医师</option>
+                        </select>
+                    </div>
+                    
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="submit" class="btn btn-primary">保存修改</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 修改头像模态框 -->
+<div class="modal fade" id="changeAvatarModal" tabindex="-1" aria-labelledby="changeAvatarModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="changeAvatarModalLabel">修改头像</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                                <form id="avatarForm" method="POST" action="{{ url_for('update_avatar') }}" enctype="multipart/form-data">                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    
+                    <div class="mb-3">
+                        <label for="avatar" class="form-label">选择图片</label>
+                        <input type="file" class="form-control" id="avatar" name="avatar" accept="image/*" required>
+                    </div>
+                    
+                    <div class="avatar-preview-container">
+                        <div id="avatar-preview"></div>
+                    </div>
+                    
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="submit" class="btn btn-primary">上传头像</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 修改密码模态框 -->
+<div class="modal fade" id="changePasswordModal" tabindex="-1" aria-labelledby="changePasswordModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="changePasswordModalLabel">修改密码</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="passwordForm" method="POST" action="{{ url_for('change_password') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    
+                    <div class="mb-3">
+                        <label for="current_password" class="form-label">当前密码</label>
+                        <input type="password" class="form-control" id="current_password" name="current_password" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="new_password" class="form-label">新密码</label>
+                        <input type="password" class="form-control" id="new_password" name="new_password" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="confirm_password" class="form-label">确认新密码</label>
+                        <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                    </div>
+                    
+                    <div class="password-requirements">
+                        <div class="requirement-title">密码要求：</div>
+                        <ul>
+                            <li>长度至少8个字符</li>
+                            <li>至少包含一个大写字母</li>
+                            <li>至少包含一个小写字母</li>
+                            <li>至少包含一个数字</li>
+                            <li>至少包含一个特殊字符</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="submit" class="btn btn-primary">保存新密码</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* 基础布局样式 */
+.main-container {
+    width: 100%;
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 0 15px;
+}
+
+/* 顶部导航栏 */
+.top-navigation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: white;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    padding: 0 15px;
+}
+
+.top-nav-left {
+    display: flex;
+    align-items: center;
+}
+
+.content-title {
+    font-size: 18px;
+    font-weight: 500;
+    color: #333;
+    margin: 15px 0;
+}
+
+.content-title i {
+    color: #4a89dc;
+    margin-left: 5px;
+}
+
+/* 个人资料页面布局 */
+.profile-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+/* 信息盒子样式 */
+.clinical-info-box {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    margin-bottom: 20px;
+}
+
+.info-box-title {
+    padding: 12px 15px;
+    background: #f5f7fa;
+    border-bottom: 1px solid #e0e0e0;
+    font-weight: 500;
+    color: #333;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.info-box-title i {
+    margin-right: 6px;
+    color: #4a89dc;
+}
+
+.info-box-content {
+    padding: 15px;
+}
+
+/* 个人资料卡片样式 */
+.profile-details {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #f0f0f0;
+    margin-bottom: 20px;
+}
+
+.profile-avatar {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    overflow: hidden;
+}
+
+.profile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-placeholder {
+    width: 100%;
+    height: 100%;
+    background-color: #f0f4f8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #aaa;
+    font-size: 36px;
+}
+
+.change-avatar-btn {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background-color: #4a89dc;
+    color: white;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.profile-info {
+    flex: 1;
+}
+
+.profile-name {
+    font-size: 22px;
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 5px;
+}
+
+.profile-title {
+    font-size: 16px;
+    color: #555;
+    margin-bottom: 5px;
+}
+
+.profile-department {
+    font-size: 14px;
+    color: #777;
+    margin-bottom: 10px;
+}
+
+.profile-badge {
+    display: inline-flex;
+    align-items: center;
+    background-color: #e8f5e9;
+    color: #388e3c;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.profile-badge i {
+    margin-right: 4px;
+}
+
+/* 个人数据列表 */
+.profile-data {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+}
+
+.data-item {
+    margin-bottom: 5px;
+}
+
+.data-label {
+    font-size: 13px;
+    color: #777;
+    margin-bottom: 3px;
+}
+
+.data-value {
+    font-size: 14px;
+    color: #333;
+    font-weight: 500;
+}
+
+/* 编辑按钮 */
+.edit-profile-btn, 
+.edit-specialties-btn {
+    background: none;
+    border: none;
+    color: #4a89dc;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+.edit-profile-btn i, 
+.edit-specialties-btn i {
+    margin-right: 4px;
+}
+
+/* 研究专长样式 */
+.specialties-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.specialty-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background-color: #f0f4f8;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 14px;
+}
+
+.specialty-icon {
+    color: #4a89dc;
+}
+
+.empty-specialties {
+    text-align: center;
+    padding: 20px;
+    color: #777;
+}
+
+.add-specialty-btn {
+    background: none;
+    border: none;
+    color: #4a89dc;
+    margin-top: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    margin: 10px auto 0;
+}
+
+/* 账户安全项目 */
+.security-items {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.security-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    border-radius: 6px;
+    background-color: #f9f9f9;
+}
+
+.security-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.security-icon {
+    font-size: 20px;
+    color: #4a89dc;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #e1f5fe;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.security-title {
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.security-status {
+    font-size: 13px;
+    color: #777;
+}
+
+/* 活动时间线 */
+.activity-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.activity-item {
+    display: flex;
+    gap: 15px;
+}
+
+.activity-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    flex-shrink: 0;
+}
+
+.activity-icon.login {
+    background-color: #4caf50;
+}
+
+.activity-icon.project {
+    background-color: #2196f3;
+}
+
+.activity-icon.export {
+    background-color: #ff9800;
+}
+
+.activity-icon.update {
+    background-color: #9c27b0;
+}
+
+.activity-content {
+    flex: 1;
+}
+
+.activity-title {
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.activity-details {
+    font-size: 13px;
+    color: #555;
+    margin-bottom: 4px;
+}
+
+.activity-time {
+    font-size: 12px;
+    color: #777;
+}
+
+.empty-activities {
+    text-align: center;
+    padding: 20px;
+    color: #777;
+}
+
+.empty-icon {
+    font-size: 48px;
+    color: #ddd;
+    margin-bottom: 10px;
+}
+
+/* 项目摘要 */
+.projects-summary {
+    padding: 10px 0;
+}
+
+.summary-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.summary-stat-card {
+    text-align: center;
+    padding: 15px;
+    background-color: #f5f7fa;
+    border-radius: 6px;
+}
+
+.summary-stat-card .stat-number {
+    font-size: 24px;
+    font-weight: bold;
+    color: #4a89dc;
+    margin-bottom: 5px;
+}
+
+.summary-stat-card .stat-label {
+    font-size: 14px;
+    color: #555;
+}
+
+.view-all-projects {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #4a89dc;
+    text-decoration: none;
+    font-size: 14px;
+    margin-top: 10px;
+}
+
+.view-all-projects i {
+    margin-left: 5px;
+}
+
+/* 头像预览 */
+.avatar-preview-container {
+    margin: 15px 0;
+    text-align: center;
+}
+
+#avatar-preview {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    margin: 0 auto;
+    overflow: hidden;
+    background-color: #f0f4f8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #aaa;
+    font-size: 36px;
+}
+
+#avatar-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* 密码要求 */
+.password-requirements {
+    background-color: #f8f9fa;
+    padding: 10px 15px;
+    border-radius: 4px;
+    margin: 15px 0;
+}
+
+.requirement-title {
+    font-weight: 500;
+    margin-bottom: 5px;
+    color: #333;
+    font-size: 14px;
+}
+
+.password-requirements ul {
+    padding-left: 20px;
+    margin-bottom: 0;
+}
+
+.password-requirements li {
+    font-size: 13px;
+    color: #555;
+    margin-bottom: 3px;
+}
+
+/* 按钮样式 */
+.clinical-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 16px;
+    background-color: #4a89dc;
+    color: white;
+    border-radius: 4px;
+    font-size: 14px;
+    text-decoration: none;
+    transition: background-color 0.2s;
+    border: none;
+    cursor: pointer;
+}
+
+.clinical-button:hover {
+    background-color: #3a7bd5;
+    color: white;
+    text-decoration: none;
+}
+
+.clinical-button.secondary {
+    background-color: #f5f5f5;
+    color: #333;
+    border: 1px solid #ddd;
+}
+
+.clinical-button.secondary:hover {
+    background-color: #e0e0e0;
+}
+
+.clinical-button.sm {
+    padding: 5px 10px;
+    font-size: 13px;
+}
+
+/* 响应式布局 */
+@media (max-width: 1200px) {
+    .profile-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .profile-details {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .profile-avatar {
+        margin: 0 auto;
+    }
+    
+    .profile-data {
+        grid-template-columns: 1fr;
+    }
+    
+    .security-item {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .security-info {
+        width: 100%;
+    }
+}
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 头像预览功能
+        const avatarInput = document.getElementById('avatar');
+        const avatarPreview = document.getElementById('avatar-preview');
+        
+        if (avatarInput && avatarPreview) {
+            avatarInput.addEventListener('change', function() {
+                const file = this.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        // 清空预览区域
+                        avatarPreview.innerHTML = '';
+                        
+                        // 创建图片预览
+                        const img = document.createElement('img');
+                        img.src = e.target.result;
+                        avatarPreview.appendChild(img);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+        
+        // 密码匹配验证
+        const passwordForm = document.getElementById('passwordForm');
+        const newPassword = document.getElementById('new_password');
+        const confirmPassword = document.getElementById('confirm_password');
+        
+        if (passwordForm) {
+            passwordForm.addEventListener('submit', function(e) {
+                if (newPassword.value !== confirmPassword.value) {
+                    e.preventDefault();
+                    alert('新密码和确认密码不匹配');
+                }
+            });
+        }
+    });
+</script>
+{% endblock %} 

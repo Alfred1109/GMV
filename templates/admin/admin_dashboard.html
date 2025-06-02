@@ -1,0 +1,548 @@
+{% extends "clinical_base.html" %}
+
+{% block title %}管理员工作台 - 医学临床科研专病数据管理平台{% endblock %}
+
+{% block sidebar %}
+<!-- 这里不添加侧边栏内容，以便主内容区域能够占据更多空间 -->
+{% endblock %}
+
+{% block content %}
+<!-- 添加自定义样式 -->
+<style>
+/* 覆盖基础模板中的样式，确保内容居中 */
+.col-md-9.col-lg-10.clinical-content {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+    padding: 15px !important;
+}
+
+/* 隐藏侧边栏 */
+.col-md-3.col-lg-2.clinical-sidebar {
+    display: none !important;
+}
+
+.dashboard-container {
+    width: 90%;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0 20px;
+    box-sizing: border-box;
+    max-width: 1800px;
+}
+
+.chart-container {
+    height: 300px;
+    position: relative;
+}
+
+.data-card {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    height: 100%;
+}
+
+.data-card h4 {
+    font-size: 24px;
+    font-weight: bold;
+    color: #4e73df;
+    margin-bottom: 5px;
+}
+
+.chart-title {
+    font-weight: 600;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+/* 确保页面内容在任何缩放比例下都居中 */
+@media (min-width: 1200px) {
+    .dashboard-container {
+        width: 90%;
+    }
+}
+
+@media (min-width: 992px) and (max-width: 1199px) {
+    .dashboard-container {
+        width: 95%;
+    }
+}
+
+@media (max-width: 991px) {
+    .dashboard-container {
+        width: 98%;
+    }
+}
+</style>
+
+<div class="dashboard-container">
+    <div class="content-title text-center">
+    管理员工作台 <i class="bi bi-info-circle info-icon"></i>
+</div>
+
+    <!-- 数据整体看板 -->
+    <div class="clinical-info-box dashboard-box">
+        <div class="info-box-title">
+            整体数据看板
+        </div>
+        <div class="info-box-content">
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="data-card text-center">
+                        <h4>{{ datasets_count }} <small class="text-muted">{{ datasets_change_str }}</small></h4>
+                        <p>数据集总数</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="data-card text-center">
+                        <h4>{{ daily_data_volume }} <small class="text-muted">{{ daily_volume_change }}</small></h4>
+                        <p>每日数据量</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="data-card text-center">
+                        <h4>{{ daily_increase }}</h4>
+                        <p>日环比增长</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="data-card text-center">
+                        <h4>{{ total_fields }} <small class="text-muted">{{ fields_change_str }}</small></h4>
+                        <p>总字段数</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- 数据集增长趋势图 -->
+                <div class="col-md-6 mb-4">
+                    <h6 class="chart-title">数据集增长趋势</h6>
+                    <div class="chart-container">
+                        <canvas id="datasetGrowthChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- 数据分类分布图 -->
+                <div class="col-md-6 mb-4">
+                    <h6 class="chart-title">数据分组分布</h6>
+                    <div class="chart-container">
+                        <canvas id="dataCategoryChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- 字段缺失率统计 -->
+                <div class="col-md-6 mb-4">
+                    <h6 class="chart-title">字段缺失率统计</h6>
+                    <div class="chart-container">
+                        <canvas id="fieldMissingChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- 每日数据量变化 -->
+                <div class="col-md-6 mb-4">
+                    <h6 class="chart-title">每日数据量变化</h6>
+                    <div class="chart-container">
+                        <canvas id="dailyDataVolumeChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<!-- Data Warehouse Management -->
+<div class="clinical-info-box dashboard-box">
+    <div class="info-box-title">
+        数据仓库管理
+    </div>
+    <div class="info-box-content">
+        <div class="text-center mb-4">
+            <h5 class="fw-bold">GeniusMed-Vault临床专病数据库</h5>
+            <p class="small">————高质量数据服务高质量科研————</p>
+        </div>
+        
+        <div class="row">
+            <!-- 左侧：医院信息集成与交换平台 -->
+            <div class="col-md-6">
+                <div class="card mb-3">
+                    <div class="card-header bg-primary text-white">
+                        医院信息集成与交换平台
+                    </div>
+                    <div class="card-body">
+                        <div class="list-group">
+                            <a href="{{ url_for('admin_dashboard') }}#integration" class="list-group-item list-group-item-action">
+                                <i class="bi bi-diagram-3"></i> 集成引擎
+                            </a>
+                            <a href="{{ url_for('admin_dashboard') }}#sso" class="list-group-item list-group-item-action">
+                                <i class="bi bi-key"></i> 单点登录
+                            </a>
+                            <a href="{{ url_for('admin_dashboard') }}#services" class="list-group-item list-group-item-action">
+                                <i class="bi bi-gear"></i> 集成服务
+                            </a>
+                            <a href="{{ url_for('admin_dashboard') }}#service-management" class="list-group-item list-group-item-action">
+                                <i class="bi bi-sliders"></i> 集成服务管理
+                            </a>
+                            <a href="{{ url_for('admin_dashboard') }}#monitoring" class="list-group-item list-group-item-action">
+                                <i class="bi bi-display"></i> 服务监控
+                            </a>
+                            <a href="{{ url_for('admin_dashboard') }}#interconnect" class="list-group-item list-group-item-action">
+                                <i class="bi bi-arrow-left-right"></i> 互联互通服务
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 右侧：医疗数据资源平台 -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        医疗数据资源平台
+                    </div>
+                    <div class="card-body">
+                        <div class="list-group">
+                            <a href="{{ url_for('admin_dashboard') }}#medical-records" class="list-group-item list-group-item-action">
+                                <i class="bi bi-file-earmark-text"></i> 病历共享文档
+                            </a>
+                            <a href="{{ url_for('admin_dashboard') }}#patient-index" class="list-group-item list-group-item-action">
+                                <i class="bi bi-person-badge"></i> 患者主索引
+                            </a>
+                            <a href="{{ url_for('admin_dashboard') }}#imaging" class="list-group-item list-group-item-action">
+                                <i class="bi bi-image"></i> 医学影像中心
+                            </a>
+                            <a href="{{ url_for('admin_dashboard') }}#standard-data" class="list-group-item list-group-item-action">
+                                <i class="bi bi-card-checklist"></i> 标准数据集
+                            </a>
+                            <a href="{{ url_for('admin_dashboard') }}#master-data" class="list-group-item list-group-item-action">
+                                <i class="bi bi-database"></i> 主数据/术语
+                            </a>
+                            <a href="{{ url_for('admin_dashboard') }}#research-data" class="list-group-item list-group-item-action">
+                                <i class="bi bi-journal-medical"></i> 科研数据中心
+                            </a>
+                            <a href="{{ url_for('admin_dashboard') }}#clinical-data" class="list-group-item list-group-item-action">
+                                <i class="bi bi-clipboard-pulse"></i> 临床数据中心
+                            </a>
+                            <a href="{{ url_for('admin_dashboard') }}#operations-data" class="list-group-item list-group-item-action">
+                                <i class="bi bi-graph-up"></i> 运营数据中心
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-center mt-3">
+            <a href="{{ url_for('data_warehouse_dashboard') }}" class="clinical-button">
+                <i class="bi bi-box-arrow-in-right"></i> 进入专病库管理
+            </a>
+        </div>
+    </div>
+</div>
+
+    <div class="row">
+    <!-- System Overview -->
+        <div class="col-md-6">
+    <div class="clinical-info-box dashboard-box">
+        <div class="info-box-title">
+            系统概览
+        </div>
+        <div class="info-box-content">
+            <table class="clinical-table">
+                <thead>
+                    <tr>
+                        <th>统计项</th>
+                        <th>数量</th>
+                        <th>状态</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>用户数量</td>
+                        <td>{{ users_count }}</td>
+                        <td class="percentage-cell">正常</td>
+                    </tr>
+                    <tr>
+                        <td>数据源数量</td>
+                        <td>{{ data_sources_count }}</td>
+                        <td class="percentage-cell">正常</td>
+                    </tr>
+                    <tr>
+                        <td>数据集数量</td>
+                        <td>{{ datasets_count }}</td>
+                        <td class="percentage-cell">正常</td>
+                    </tr>
+                    <tr>
+                        <td>项目数量</td>
+                        <td>{{ projects_count }}</td>
+                        <td class="percentage-cell">正常</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div class="text-center mt-3">
+                <div class="row">
+                            <div class="col-md-6">
+                        <a href="{{ url_for('user_management') }}" class="clinical-button w-100">
+                            <i class="bi bi-people-fill me-1"></i> 用户管理
+                        </a>
+                    </div>
+                            <div class="col-md-6">
+                        <a href="{{ url_for('data_sources') }}" class="clinical-button w-100">
+                            <i class="bi bi-database-fill me-1"></i> 数据源管理
+                        </a>
+                    </div>
+                            <div class="col-md-6 mt-2">
+                        <a href="{{ url_for('datasets') }}" class="clinical-button w-100">
+                            <i class="bi bi-collection-fill me-1"></i> 数据集管理
+                        </a>
+                    </div>
+                            <div class="col-md-6 mt-2">
+                        <a href="{{ url_for('system_config') }}" class="clinical-button w-100">
+                            <i class="bi bi-gear-fill me-1"></i> 系统配置
+                        </a>
+                            </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- System Status -->
+        <div class="col-md-6">
+    <div class="clinical-info-box dashboard-box">
+        <div class="info-box-title">
+            数据统计
+        </div>
+        <div class="info-box-content">
+            <div class="mb-4">
+                <h6>数据源类型分布</h6>
+                <table class="clinical-table">
+                    <thead>
+                        <tr>
+                            <th>类型</th>
+                            <th>数量</th>
+                            <th>百分比</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>结构化数据</td>
+                            <td>{{ structured_count|default(0) }}</td>
+                            <td class="percentage-cell">{{ structured_percent|default(0) }}%</td>
+                        </tr>
+                        <tr>
+                            <td>半结构化数据</td>
+                            <td>{{ semi_structured_count|default(0) }}</td>
+                            <td class="percentage-cell">{{ semi_structured_percent|default(0) }}%</td>
+                        </tr>
+                        <tr>
+                            <td>非结构化数据</td>
+                            <td>{{ unstructured_count|default(0) }}</td>
+                            <td class="percentage-cell">{{ unstructured_percent|default(0) }}%</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div>
+                <h6>系统存储使用情况</h6>
+                <div class="enrollment-progress">
+                    <div class="enrollment-bar storage-bar">
+                        {{ storage_used_percent }}%
+                    </div>
+                </div>
+                <div class="text-center mt-2">
+                    <small>已使用: {{ storage_used }} / {{ storage_total }}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Data Sources -->
+    <div class="clinical-info-box dashboard-box">
+        <div class="info-box-title">
+            最近添加的数据源
+        </div>
+        <div class="info-box-content">
+            {% if recent_sources %}
+            <table class="clinical-table">
+                <thead>
+                    <tr>
+                        <th>名称</th>
+                        <th>类型</th>
+                        <th>格式</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for source in recent_sources %}
+                    <tr>
+                        <td>{{ source.name }}</td>
+                        <td>{{ source.source_type }}</td>
+                        <td>{{ source.format }}</td>
+                        <td>{{ source.created_at.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            <a href="{{ url_for('view_data_source', source_id=source.id) }}" class="clinical-button">查看</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>还没有添加数据源</p>
+            {% endif %}
+            
+            <a href="{{ url_for('add_data_source') }}" class="clinical-button mt-3">
+                <i class="bi bi-plus-circle"></i> 添加数据源
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- 添加图表JS -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 解析后端传递的JSON数据
+    const monthsLabels = JSON.parse('{{ months_labels|safe }}');
+    const monthsData = JSON.parse('{{ months_data|safe }}');
+    const categoryLabels = JSON.parse('{{ category_labels|safe }}');
+    const categoryValues = JSON.parse('{{ category_values|safe }}');
+    const fieldMissingData = JSON.parse('{{ field_missing_data|safe }}');
+    const dailyVolumeLabels = JSON.parse('{{ daily_volume_labels|safe }}');
+    const dailyVolumeData = JSON.parse('{{ daily_volume_data|safe }}');
+    
+    // 数据集增长趋势图
+    const datasetGrowthCtx = document.getElementById('datasetGrowthChart').getContext('2d');
+    
+    new Chart(datasetGrowthCtx, {
+        type: 'line',
+        data: {
+            labels: monthsLabels,
+            datasets: [{
+                label: '数据集数量',
+                data: monthsData,
+                borderColor: '#4e73df',
+                tension: 0.3,
+                fill: false
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+
+    // 数据分类分布图
+    const dataCategoryCtx = document.getElementById('dataCategoryChart').getContext('2d');
+    
+    // 生成颜色数组，未分组使用灰色
+    const categoryColors = [];
+    const colorPalette = [
+        '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', 
+        '#6f42c1', '#fd7e14', '#20c997', '#6610f2', '#007bff',
+        '#17a2b8', '#28a745', '#dc3545', '#ffc107', '#6c757d'
+    ];
+    
+    for (let i = 0; i < categoryLabels.length; i++) {
+        if (categoryLabels[i] === '未分组') {
+            categoryColors.push('#aaaaaa'); // 灰色
+        } else {
+            // 使用预定义的颜色
+            categoryColors.push(colorPalette[i % colorPalette.length]);
+        }
+    }
+    
+    new Chart(dataCategoryCtx, {
+        type: 'pie',
+        data: {
+            labels: categoryLabels,
+            datasets: [{
+                data: categoryValues,
+                backgroundColor: categoryColors
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.raw || 0;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = Math.round((value / total) * 100);
+                            return `${label}分组: ${value}条数据 (${percentage}%)`;
+                        }
+                    }
+                },
+                title: {
+                    display: true,
+                    text: '按数据集字段分组统计的数据量分布',
+                    font: {
+                        size: 14
+                    }
+                },
+                legend: {
+                    position: 'right',
+                    labels: {
+                        boxWidth: 12,
+                        font: {
+                            size: 10
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // 字段缺失率统计
+    const fieldMissingCtx = document.getElementById('fieldMissingChart').getContext('2d');
+    
+    new Chart(fieldMissingCtx, {
+        type: 'bar',
+        data: {
+            labels: fieldMissingData.labels,
+            datasets: [{
+                label: '字段缺失率(%)',
+                data: fieldMissingData.values,
+                backgroundColor: '#36b9cc'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            }
+        }
+    });
+
+    // 每日数据量变化
+    const dailyDataVolumeCtx = document.getElementById('dailyDataVolumeChart').getContext('2d');
+    
+    new Chart(dailyDataVolumeCtx, {
+        type: 'line',
+        data: {
+            labels: dailyVolumeLabels,
+            datasets: [{
+                label: '数据量(MB)',
+                data: dailyVolumeData,
+                borderColor: '#1cc88a',
+                tension: 0.3,
+                fill: false
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+});
+</script>
+{% endblock %} 

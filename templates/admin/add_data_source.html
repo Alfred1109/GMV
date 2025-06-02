@@ -1,0 +1,265 @@
+{% extends "clinical_base.html" %}
+
+{% block title %}添加数据源 - 医学临床科研专病数据管理平台{% endblock %}
+
+{% block content %}
+<div class="content-title">
+    添加数据源 <i class="bi bi-database-add info-icon"></i>
+    <a href="{{ url_for('data_sources') }}" class="float-end btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> 返回数据源列表
+    </a>
+</div>
+
+<div class="clinical-info-box">
+    <div class="info-box-title">
+        填写数据源信息
+    </div>
+    <div class="info-box-content">
+        <form action="{{ url_for('add_data_source') }}" method="POST" enctype="multipart/form-data" class="p-3">
+            <div class="mb-3">
+                <label for="name" class="form-label">数据源名称</label>
+                <input type="text" class="form-control" id="name" name="name" required>
+                <div class="form-text">为数据源提供一个清晰、具有描述性的名称，便于日后识别和管理</div>
+            </div>
+            
+            <div class="mb-3">
+                <label for="source_type" class="form-label">数据源类型</label>
+                <select class="form-select" id="source_type" name="source_type" required>
+                    <option value="structured">结构化</option>
+                    <option value="semi-structured">半结构化</option>
+                    <option value="unstructured">非结构化</option>
+                </select>
+                <div class="form-text">选择数据源的基本结构类型，将影响可用的格式选项和处理方式</div>
+            </div>
+            
+            <div class="mb-3">
+                <label for="format" class="form-label">数据格式</label>
+                <select class="form-select" id="format" name="format" required>
+                    <option value="CSV">CSV</option>
+                    <option value="JSON">JSON</option>
+                    <option value="XML">XML</option>
+                    <option value="SQL">SQL</option>
+                    <option value="DICOM">DICOM</option>
+                    <option value="HL7">HL7</option>
+                    <option value="FHIR">FHIR</option>
+                    <option value="TEXT">纯文本</option>
+                    <option value="OTHER">其他</option>
+                </select>
+                <div class="form-text">指定数据的具体格式，系统将根据格式应用相应的解析和处理方法</div>
+            </div>
+            
+            <div class="mb-3">
+                <label for="description" class="form-label">描述</label>
+                <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                <div class="form-text">添加关于数据内容、用途、来源等信息的详细描述，有助于其他用户理解数据</div>
+            </div>
+            
+            <div class="mb-3">
+                <label for="data_file" class="form-label">上传数据文件（可选）</label>
+                <input class="form-control" type="file" id="data_file" name="data_file">
+                <div class="form-text">支持上传CSV、Excel、JSON、XML等格式的数据文件。最大大小: 100MB</div>
+            </div>
+            
+            <div class="mb-3 form-check">
+                <input type="checkbox" class="form-check-input" id="processImmediately" name="process_immediately">
+                <label class="form-check-label" for="processImmediately">上传后立即处理数据</label>
+                <div class="form-text mt-1">选中此项将在添加后立即解析和处理数据文件，便于快速查看和使用数据</div>
+            </div>
+            
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                <a href="{{ url_for('data_sources') }}" class="btn btn-secondary me-md-2">取消</a>
+                <button type="submit" class="clinical-button">添加数据源</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="clinical-info-box mt-4">
+    <div class="info-box-title">
+        数据源说明
+    </div>
+    <div class="info-box-content p-3">
+        <h5>不同类型数据源的说明</h5>
+        <div class="row mt-3">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        结构化数据
+                    </div>
+                    <div class="card-body">
+                        <p>具有明确定义的数据模型，如关系数据库表、CSV文件等。</p>
+                        <p>示例：SQL数据库、CSV文件、Excel表格</p>
+                        <p><strong>优势：</strong>高效查询、易于分析</p>
+                        <p><strong>适用场景：</strong>患者基本信息、实验室检查结果、标准化临床数据</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header" style="background-color: #fd7e14; color: white;">
+                        半结构化数据
+                    </div>
+                    <div class="card-body">
+                        <p>有一定结构但不遵循表格模型的数据，如JSON、XML等。</p>
+                        <p>示例：JSON文件、XML文档、HL7消息</p>
+                        <p><strong>优势：</strong>灵活性高、可表达复杂关系</p>
+                        <p><strong>适用场景：</strong>电子病历、医疗设备输出、临床报告</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header bg-secondary text-white">
+                        非结构化数据
+                    </div>
+                    <div class="card-body">
+                        <p>没有预定义结构的数据，如文本、图像、音频、视频等。</p>
+                        <p>示例：电子病历文档、医学影像、音频记录</p>
+                        <p><strong>优势：</strong>信息丰富、原始完整</p>
+                        <p><strong>适用场景：</strong>医学影像、临床医师笔记、访谈记录</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="clinical-info-box mt-4">
+    <div class="info-box-title">
+        数据源统计与使用建议
+    </div>
+    <div class="info-box-content p-3">
+        <div class="row">
+            <div class="col-md-6">
+                <h5>数据源使用建议</h5>
+                <ul class="list-group">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        选择合适的数据格式
+                        <span class="badge bg-primary rounded-pill"><i class="bi bi-check-circle"></i></span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        确保数据完整性和准确性
+                        <span class="badge bg-primary rounded-pill"><i class="bi bi-check-circle"></i></span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        添加详细的数据描述
+                        <span class="badge bg-primary rounded-pill"><i class="bi bi-check-circle"></i></span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        考虑数据隐私保护
+                        <span class="badge bg-primary rounded-pill"><i class="bi bi-shield-check"></i></span>
+                    </li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <h5>常见数据格式支持情况</h5>
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>数据格式</th>
+                                <th>支持程度</th>
+                                <th>处理速度</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>CSV/Excel</td>
+                                <td>完全支持</td>
+                                <td>快速</td>
+                            </tr>
+                            <tr>
+                                <td>JSON/XML</td>
+                                <td>完全支持</td>
+                                <td>中等</td>
+                            </tr>
+                            <tr>
+                                <td>SQL数据</td>
+                                <td>完全支持</td>
+                                <td>快速</td>
+                            </tr>
+                            <tr>
+                                <td>DICOM</td>
+                                <td>部分支持</td>
+                                <td>较慢</td>
+                            </tr>
+                            <tr>
+                                <td>HL7/FHIR</td>
+                                <td>部分支持</td>
+                                <td>中等</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 类型选择变化时更新格式选项
+        const sourceTypeSelect = document.getElementById('source_type');
+        const formatSelect = document.getElementById('format');
+        const fileInput = document.getElementById('data_file');
+        const processCheckbox = document.getElementById('processImmediately');
+        
+        // 初始根据当前选择更新格式选项
+        updateFormatOptions(sourceTypeSelect.value);
+        
+        sourceTypeSelect.addEventListener('change', function() {
+            updateFormatOptions(this.value);
+        });
+        
+        // 当文件输入变化时，如果有选择文件，就自动勾选"立即处理"选项
+        fileInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                processCheckbox.checked = true;
+            }
+        });
+        
+        function updateFormatOptions(type) {
+            // 保存当前选中的值
+            const currentValue = formatSelect.value;
+            // 清除当前选项
+            formatSelect.innerHTML = '';
+            
+            if (type === 'structured') {
+                addOption(formatSelect, 'CSV', 'CSV');
+                addOption(formatSelect, 'Excel', 'EXCEL');
+                addOption(formatSelect, 'SQL', 'SQL');
+                addOption(formatSelect, 'HTTP API', 'API');
+            } else if (type === 'semi-structured') {
+                addOption(formatSelect, 'JSON', 'JSON');
+                addOption(formatSelect, 'XML', 'XML');
+                addOption(formatSelect, 'HL7', 'HL7');
+                addOption(formatSelect, 'FHIR', 'FHIR');
+            } else { // unstructured
+                addOption(formatSelect, '纯文本', 'TEXT');
+                addOption(formatSelect, 'DICOM', 'DICOM');
+                addOption(formatSelect, '图片文件', 'IMAGE');
+                addOption(formatSelect, '音频文件', 'AUDIO');
+                addOption(formatSelect, '视频文件', 'VIDEO');
+                addOption(formatSelect, '其他', 'OTHER');
+            }
+            
+            // 尝试恢复之前的选择，如果可能的话
+            for (let i = 0; i < formatSelect.options.length; i++) {
+                if (formatSelect.options[i].value === currentValue) {
+                    formatSelect.selectedIndex = i;
+                    break;
+                }
+            }
+        }
+        
+        function addOption(selectElement, text, value) {
+            const option = document.createElement('option');
+            option.text = text;
+            option.value = value;
+            selectElement.add(option);
+        }
+    });
+</script>
+{% endblock %} 

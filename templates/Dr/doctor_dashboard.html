@@ -1,0 +1,1581 @@
+{% extends "clinical_base.html" %}
+
+{% block title %}研究者工作台 - 医学临床科研专病数据管理平台{% endblock %}
+
+{% block custom_sidebar %}
+    <!-- 快速链接 - 从右侧栏移到侧边栏 -->
+    <div class="clinical-info-box sidebar-box">
+        <div class="info-box-title">
+            <i class="bi bi-link-45deg"></i> 快速访问
+        </div>
+        <div class="info-box-content">
+            <div class="quick-links">
+                <a href="{{ url_for('doctor_create_project') }}" class="quick-link">
+                    <i class="bi bi-plus-circle"></i> 新建项目
+                </a>
+                <a href="{{ url_for('doctor_my_datasets') }}" class="quick-link">
+                    <i class="bi bi-database"></i> 浏览数据集
+                </a>
+                <a href="{{ url_for('doctor_analysis_tools') }}" class="quick-link">
+                    <i class="bi bi-bar-chart"></i> 数据分析工具
+                </a>
+                <a href="{{ url_for('help_center') }}" class="quick-link">
+                    <i class="bi bi-question-circle"></i> 帮助中心
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 历史项目 -->
+    <div class="clinical-info-box sidebar-box">
+        <div class="info-box-title">
+            <i class="bi bi-clock-history"></i> 最近项目历史
+        </div>
+        <div class="info-box-content">
+            {% if projects and projects|length > 0 %}
+                <table class="clinical-table">
+                    <thead>
+                        <tr>
+                            <th>项目名称</th>
+                            <th>创建日期</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for project in projects[:5] %}
+                        <tr class="{% if project.is_collaborator %}collaborator-row{% endif %}">
+                            <td>
+                                {{ project.name }}
+                                {% if project.is_collaborator %}
+                                <span class="collaborator-badge-sm" title="您是此项目的协作成员">
+                                    <i class="bi bi-people"></i>
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td>{{ project.created_at.strftime('%Y-%m-%d') }}</td>
+                            <td>
+                                <span class="status-badge {{ project.status }}">
+                                    {{ '进行中' if project.status == 'active' else ('已完成' if project.status == 'completed' else '进行中') }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="table-actions">
+                                    <a href="{{ url_for('doctor_view_project', project_id=project.id) }}" class="clinical-button sm">
+                                        <i class="bi bi-eye"></i> 查看
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="empty-projects-container">
+                    <div class="empty-projects-text">您还没有项目历史记录</div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}
+
+{% block content %}
+<!-- 顶部导航栏 -->
+<div class="top-navigation">
+    <div class="top-nav-left">
+        <div class="content-title">
+            医生工作台 <i class="bi bi-info-circle info-icon"></i>
+        </div>
+    </div>
+    <div class="top-nav-right">
+        <a href="{{ url_for('doctor_my_projects') }}" class="clinical-button secondary">
+            <i class="bi bi-kanban"></i> 我的项目
+        </a>
+        <a href="{{ url_for('doctor_my_datasets') }}" class="clinical-button secondary">
+            <i class="bi bi-database"></i> 浏览数据集
+        </a>
+    </div>
+</div>
+
+<!-- 主内容区域容器 -->
+<div class="main-container">
+    <!-- 通知提示容器 -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1050;">
+        <div id="actionToast" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="bi bi-check-circle me-2"></i>
+                    <span id="toastMessage">操作成功</span>
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 重新组织的主内容区域 -->
+    <div class="dashboard-container">
+        <!-- 中间栏：项目卡片和数据集 -->
+        <div class="dashboard-middle">
+            <!-- 我的项目卡片 -->
+            <div class="clinical-info-box dashboard-box">
+                <div class="info-box-title">
+                    <i class="bi bi-kanban"></i> 我的项目
+                    <a href="#" class="add-project-link" data-bs-toggle="modal" data-bs-target="#newProjectModal">
+                        <i class="bi bi-plus-circle"></i> 新建
+                    </a>
+                </div>
+                <div class="info-box-content">
+                    {% if projects and projects|length > 0 %}
+                        <div class="project-cards-container">
+                            {% for project in projects[:4] %}
+                            <div class="project-card {% if project.is_collaborator %}collaborator-project{% endif %}">
+                                <div class="project-card-header">
+                                    <h3>{{ project.name }}</h3>
+                                    <div class="project-status-container">
+                                        <div class="status-badges">
+                                            <span class="project-status {{ project.status }}">
+                                                {{ '进行中' if project.status == 'active' else ('已完成' if project.status == 'completed' else '进行中') }}
+                                            </span>
+                                            {% if project.is_collaborator %}
+                                            <span class="collaborator-badge" title="您是此项目的协作成员">
+                                                <i class="bi bi-people"></i> 协作
+                                            </span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="project-card-body">
+                                    <p>{{ project.description|truncate(100) }}</p>
+                                    <div class="project-metadata">
+                                        <span><i class="bi bi-calendar3"></i> {{ project.created_at.strftime('%Y-%m-%d') }}</span>
+                                        <span><i class="bi bi-database"></i> {{ project.dataset.name if project.dataset else '无数据集' }}</span>
+                                    </div>
+                                    {% if project.is_multi_center or project.collaborator_users %}
+                                    <div class="collaborators-container">
+                                        <div class="collaborators-title"><i class="bi bi-people-fill"></i> 协作成员</div>
+                                        <div class="collaborators-list">
+                                            {% if project.owner %}
+                                            <span class="collaborator-tag owner">
+                                                <i class="bi bi-person-check"></i> {{ project.owner.name }} (负责人)
+                                            </span>
+                                            {% endif %}
+                                            {% if project.collaborator_users %}
+                                                {% for collaborator in project.collaborator_users %}
+                                                <span class="collaborator-tag">
+                                                    <i class="bi bi-person"></i> {{ collaborator.name }} ({{ collaborator.hospital or '未知医院' }})
+                                                </span>
+                                                {% endfor %}
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="project-card-footer">
+                                    <div class="project-card-actions">
+                                        <a href="{{ url_for('doctor_view_project', project_id=project.id) }}" class="clinical-button sm">
+                                            <i class="bi bi-eye"></i> 查看
+                                        </a>
+                                        <a href="{{ url_for('doctor_edit_project', project_id=project.id) }}" class="clinical-button secondary sm">
+                                            <i class="bi bi-pencil"></i> 编辑
+                                        </a>
+                                        {% if project.status != 'completed' %}
+                                        <button type="button" class="clinical-button success sm complete-project-btn" data-project-id="{{ project.id }}" data-project-name="{{ project.name }}" title="完结项目">
+                                            <i class="bi bi-check-circle"></i>
+                                        </button>
+                                        {% endif %}
+                                        <button type="button" class="clinical-button danger sm delete-project-btn" data-project-id="{{ project.id }}" data-project-name="{{ project.name }}" title="删除项目">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% if projects|length > 4 %}
+                        <div class="view-more-container">
+                            <a href="{{ url_for('doctor_my_projects') }}" class="view-more-link">查看全部项目 <i class="bi bi-arrow-right"></i></a>
+                        </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="empty-projects-container">
+                            <div class="empty-projects-icon">
+                                <i class="bi bi-clipboard-plus"></i>
+                            </div>
+                            <div class="empty-projects-text">您还没有创建任何项目</div>
+                            <button class="clinical-button" data-bs-toggle="modal" data-bs-target="#newProjectModal">
+                                <i class="bi bi-plus-circle"></i> 创建新项目
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- 可用数据集 - 从右侧栏移到中间栏 -->
+            <div class="clinical-info-box dashboard-box">
+                <div class="info-box-title">
+                    <i class="bi bi-grid"></i> 可用数据集
+                </div>
+                <div class="info-box-content">
+                    {% if available_datasets and available_datasets|length > 0 %}
+                        <div class="dataset-list">
+                            {% for dataset in available_datasets[:3] %}
+                            <div class="dataset-item">
+                                <div class="dataset-name">{{ dataset.name }}</div>
+                                <div class="dataset-version">版本: {{ dataset.version }}</div>
+                                <div class="dataset-actions">
+                                    <a href="{{ url_for('doctor_view_dataset', dataset_id=dataset.id) }}" class="clinical-button sm">查看</a>
+                                    <a href="{{ url_for('doctor_analyze_dataset', dataset_id=dataset.id) }}" class="clinical-button sm secondary">分析</a>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% if available_datasets|length > 3 %}
+                        <div class="view-more-container">
+                            <a href="{{ url_for('doctor_my_datasets') }}" class="view-more-link">查看全部数据集 <i class="bi bi-arrow-right"></i></a>
+                        </div>
+                        {% endif %}
+                    {% else %}
+                    <p>目前没有可用的数据集</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧栏：数据统计和概览 -->
+        <div class="dashboard-right">
+            <!-- 数据仓库概览 - 移到右侧栏 -->
+            <div class="clinical-info-box dashboard-box">
+                <div class="info-box-title">
+                    <i class="bi bi-database-fill"></i> 数据仓库概览
+                </div>
+                <div class="info-box-content">
+                    <div class="warehouse-stats-vertical">
+                        <div class="warehouse-stat-card total-records">
+                            <div class="warehouse-stat-icon">
+                                <i class="bi bi-file-earmark-text"></i>
+                            </div>
+                            <div class="warehouse-stat-content">
+                                <div class="warehouse-stat-number">{{ data_warehouse_stats.total_records|default('0') }}</div>
+                                <div class="warehouse-stat-label">总记录数</div>
+                            </div>
+                        </div>
+                        <div class="warehouse-stat-card disease-types">
+                            <div class="warehouse-stat-icon">
+                                <i class="bi bi-virus"></i>
+                            </div>
+                            <div class="warehouse-stat-content">
+                                <div class="warehouse-stat-number">{{ data_warehouse_stats.disease_types|default('0') }}</div>
+                                <div class="warehouse-stat-label">疾病类型</div>
+                            </div>
+                        </div>
+                        <div class="warehouse-stat-card hospitals">
+                            <div class="warehouse-stat-icon">
+                                <i class="bi bi-hospital"></i>
+                            </div>
+                            <div class="warehouse-stat-content">
+                                <div class="warehouse-stat-number">{{ data_warehouse_stats.hospitals|default('0') }}</div>
+                                <div class="warehouse-stat-label">研究中心</div>
+                            </div>
+                        </div>
+                        <div class="warehouse-stat-card last-updated">
+                            <div class="warehouse-stat-icon">
+                                <i class="bi bi-calendar-check"></i>
+                            </div>
+                            <div class="warehouse-stat-content">
+                                <div class="warehouse-stat-number">{{ data_warehouse_stats.last_updated|default('--') }}</div>
+                                <div class="warehouse-stat-label">最近更新</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="data-warehouse-note">
+                        <div class="note-icon"><i class="bi bi-shield-lock"></i></div>
+                        <div class="note-text">数据仓库中的详细信息受到保护，仅显示统计概览</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 数据集使用情况 -->
+            <div class="clinical-info-box dashboard-box dataset-usage-box">
+                <div class="info-box-title">
+                    <i class="bi bi-database"></i> 数据集使用情况
+                </div>
+                <div class="info-box-content">
+                    {% if recent_datasets and recent_datasets|length > 0 %}
+                    <table class="clinical-table">
+                        <thead>
+                            <tr>
+                                <th>数据集</th>
+                                <th>使用情况</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for dataset in recent_datasets %}
+                            {% set usage = dataset.usage_percent if dataset.usage_percent is defined else 30 %}
+                            <tr>
+                                <td>{{ dataset.name }}</td>
+                                <td>
+                                    <div class="enrollment-progress">
+                                        <div class="enrollment-bar {{ dataset.progress_class }}" data-width="{{ usage }}">
+                                            {{ usage }}%
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                        <p>暂无数据集使用记录</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- 项目统计 -->
+            <div class="clinical-info-box dashboard-box">
+                <div class="info-box-title">
+                    <i class="bi bi-bar-chart"></i> 项目统计
+                </div>
+                <div class="info-box-content">
+                    {% if projects and projects|length > 0 %}
+                        {% set active_projects = namespace(count=0) %}
+                        {% set completed_projects = namespace(count=0) %}
+                        {% set draft_projects = namespace(count=0) %}
+                        
+                        {% for project in projects %}
+                            {% if project.status is defined and project.status == 'active' %}
+                                {% set active_projects.count = active_projects.count + 1 %}
+                            {% elif project.status is defined and project.status == 'completed' %}
+                                {% set completed_projects.count = completed_projects.count + 1 %}
+                            {% else %}
+                                {% set draft_projects.count = draft_projects.count + 1 %}
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% set total_projects = projects|length %}
+                        {% set active_percent = (active_projects.count / total_projects * 100)|round if total_projects > 0 else 0 %}
+                        {% set completed_percent = (completed_projects.count / total_projects * 100)|round if total_projects > 0 else 0 %}
+                        {% set draft_percent = (draft_projects.count / total_projects * 100)|round if total_projects > 0 else 0 %}
+                        
+                        <div class="stats-grid">
+                            <div class="stat-card active">
+                                <div class="stat-number">{{ active_projects.count }}</div>
+                                <div class="stat-label">进行中</div>
+                                <div class="stat-percent">{{ active_percent }}%</div>
+                            </div>
+                            <div class="stat-card completed">
+                                <div class="stat-number">{{ completed_projects.count }}</div>
+                                <div class="stat-label">已完成</div>
+                                <div class="stat-percent">{{ completed_percent }}%</div>
+                            </div>
+                            <div class="stat-card draft">
+                                <div class="stat-number">{{ draft_projects.count }}</div>
+                                <div class="stat-label">草稿</div>
+                                <div class="stat-percent">{{ draft_percent }}%</div>
+                            </div>
+                            <div class="stat-card total">
+                                <div class="stat-number">{{ total_projects }}</div>
+                                <div class="stat-label">总计</div>
+                                <div class="stat-percent">100%</div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="empty-stats-container">
+                            <p>暂无项目统计数据</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Project Modal -->
+<div class="modal fade" id="newProjectModal" tabindex="-1" aria-labelledby="newProjectModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newProjectModalLabel">创建新项目</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" action="{{ url_for('doctor_create_project') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">项目名称</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">项目描述</label>
+                        <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="dataset_id" class="form-label">选择数据集</label>
+                        <select class="form-control" id="dataset_id" name="dataset_id" required>
+                            <option value="">-- 请选择数据集 --</option>
+                            {% for dataset in available_datasets %}
+                            <option value="{{ dataset.id }}">{{ dataset.name }} ({{ dataset.version }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="multi_center_mode" name="multi_center_mode">
+                        <label class="form-check-label" for="multi_center_mode">多中心模式</label>
+                        <small class="form-text text-muted d-block">启用多中心模式可以邀请其他医生共同开展此项目</small>
+                    </div>
+                    <div class="mb-3 doctor-selection" id="doctorSelectionArea" style="display: none;">
+                        <label class="form-label">选择协作医生</label>
+                        <div class="input-group mb-2">
+                            <input type="text" class="form-control" id="doctorSearchInput" placeholder="搜索医生姓名或医院...">
+                            <button class="btn btn-outline-secondary" type="button" id="searchDoctorBtn">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                        <div class="doctor-list-container border rounded p-2" style="max-height: 200px; overflow-y: auto;">
+                            <div id="doctorListContent">
+                                <div class="text-center py-3">
+                                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                        <span class="visually-hidden">加载中...</span>
+                                    </div>
+                                    <span class="ms-2">正在加载医生列表...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="clinical-button">创建项目</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 完结项目确认模态框 -->
+<div class="modal fade" id="completeProjectModal" tabindex="-1" aria-labelledby="completeProjectModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="completeProjectModalLabel">确认完结项目</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>您确定要将项目 "<span id="completeProjectName"></span>" 标记为已完结吗？</p>
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> 完结后的项目将不能再进行编辑，但仍可查看和分析数据。
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="clinical-button secondary" data-bs-dismiss="modal">取消</button>
+                <form id="completeProjectForm" action="" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="clinical-button success">确认完结</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 删除项目确认模态框 -->
+<div class="modal fade" id="deleteProjectModal" tabindex="-1" aria-labelledby="deleteProjectModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteProjectModalLabel">确认删除项目</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>您确定要删除项目 "<span id="deleteProjectName"></span>" 吗？</p>
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i> 警告：此操作不可撤销，项目及相关数据将被永久删除。
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="clinical-button secondary" data-bs-dismiss="modal">取消</button>
+                <form id="deleteProjectForm" action="" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="clinical-button danger">确认删除</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* 基础布局样式 */
+.clinical-content {
+    padding: 15px;
+    max-width: 100%;
+}
+
+/* 主容器样式 - 使内容居中 */
+.main-container {
+    width: 100%;
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 0 15px;
+}
+
+/* 顶部导航栏 */
+.top-navigation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: white;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    padding: 15px 20px;
+}
+
+.top-nav-left {
+    display: flex;
+    align-items: center;
+}
+
+.top-nav-right {
+    display: flex;
+    gap: 10px;
+}
+
+.content-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.info-icon {
+    color: #1976d2;
+    font-size: 0.9rem;
+}
+
+/* 三栏布局容器 - 修改为两栏 */
+.dashboard-container {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+/* 中间内容区 */
+.dashboard-middle {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* 右侧内容区 */
+.dashboard-right {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* 全宽盒子 */
+.full-width-box {
+    grid-column: 1 / -1;
+    margin-bottom: 20px;
+}
+
+/* 项目卡片容器 */
+.project-cards-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    margin-bottom: 15px;
+}
+
+/* 项目卡片样式 */
+.project-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 12px;
+    background-color: #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    transition: transform 0.2s, box-shadow 0.2s;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.project-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.project-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+
+.project-card-header h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.project-status-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.project-card-body {
+    margin-bottom: 10px;
+    flex-grow: 1;
+}
+
+.project-card-body p {
+    margin-bottom: 8px;
+    color: #555;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.project-metadata {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+    font-size: 0.8rem;
+    color: #757575;
+}
+
+.project-card-footer {
+    border-top: 1px solid #f0f0f0;
+    padding-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.project-card-actions {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 5px;
+    justify-content: flex-end;
+    width: 100%;
+}
+
+.project-card-actions .clinical-button {
+    padding: 5px 8px;
+    font-size: 0.8rem;
+}
+
+.project-card-actions .clinical-button.sm {
+    padding: 4px 6px;
+    font-size: 0.75rem;
+}
+
+/* 状态标识样式 */
+.status-badges {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 2px;
+}
+
+/* 项目状态标签 */
+.project-status {
+    padding: 3px 6px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    display: inline-block;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.project-status.active {
+    background-color: #b3e5fc;
+    color: #01579b;
+}
+
+.project-status.completed {
+    background-color: #c8e6c9;
+    color: #1b5e20;
+}
+
+.project-status.draft {
+    background-color: #eeeeee;
+    color: #424242;
+}
+
+/* 协作标签 */
+.collaborator-badge {
+    background-color: #7986cb;
+    color: #ffffff;
+    font-size: 0.7rem;
+    padding: 3px 6px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.collaborator-badge-sm {
+    background-color: #7986cb;
+    color: #ffffff;
+    font-size: 0.7rem;
+    padding: 2px 4px;
+    border-radius: 4px;
+    display: inline-flex;
+    margin-left: 4px;
+}
+
+.collaborators-container {
+    margin-top: 10px;
+    padding: 8px;
+    background-color: #f9f9f9;
+    border-radius: 6px;
+    border: 1px solid #eee;
+}
+
+.collaborators-title {
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-bottom: 5px;
+    color: #555;
+}
+
+.collaborators-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.collaborator-tag {
+    background-color: #f5f5f5;
+    color: #555;
+    font-size: 0.75rem;
+    padding: 3px 8px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.collaborator-tag.owner {
+    background-color: #e3f2fd;
+    color: #1565c0;
+}
+
+/* 数据集列表样式 */
+.dataset-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.dataset-item {
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 12px;
+    background-color: #fff;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.dataset-name {
+    font-weight: 600;
+    font-size: 1rem;
+    color: #333;
+}
+
+.dataset-version {
+    font-size: 0.8rem;
+    color: #757575;
+}
+
+.dataset-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 5px;
+}
+
+/* 查看更多链接 */
+.view-more-container {
+    text-align: center;
+    margin-top: 10px;
+}
+
+.view-more-link {
+    color: #1976d2;
+    font-weight: 500;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.view-more-link:hover {
+    text-decoration: underline;
+}
+
+/* 空项目容器 */
+.empty-projects-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.empty-projects-icon {
+    font-size: 3rem;
+    color: #bdbdbd;
+    margin-bottom: 15px;
+}
+
+.empty-projects-text {
+    color: #757575;
+    margin-bottom: 20px;
+    font-size: 1.1rem;
+}
+
+.create-project-button {
+    padding: 8px 16px;
+    background-color: #1976d2;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 500;
+}
+
+.create-project-button:hover {
+    background-color: #1565c0;
+}
+
+/* 空统计数据容器 */
+.empty-stats-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 30px 0;
+    color: #757575;
+    text-align: center;
+}
+
+/* 进度条样式 */
+.enrollment-progress {
+    width: 100%;
+    background-color: #f5f5f5;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.enrollment-bar {
+    height: 20px;
+    text-align: center;
+    line-height: 20px;
+    font-size: 0.75rem;
+    color: white;
+    font-weight: 500;
+    background-color: #2196f3;
+    transition: width 0.5s ease;
+}
+
+/* 统计网格 */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+/* 四列统计网格 */
+.stats-grid-4 {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+/* 统计卡片样式 */
+.stat-card {
+    border-radius: 8px;
+    padding: 15px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.stat-card.active {
+    background-color: #e1f5fe;
+    border: 1px solid #b3e5fc;
+}
+
+.stat-card.completed {
+    background-color: #e8f5e9;
+    border: 1px solid #c8e6c9;
+}
+
+.stat-card.draft {
+    background-color: #f5f5f5;
+    border: 1px solid #e0e0e0;
+}
+
+.stat-card.total {
+    background-color: #f3e5f5;
+    border: 1px solid #e1bee7;
+}
+
+.stat-card.data-warehouse {
+    background-color: #e8eaf6;
+    border: 1px solid #c5cae9;
+}
+
+.stat-number {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: #616161;
+    margin-bottom: 5px;
+}
+
+.stat-percent {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #757575;
+}
+
+/* 数据仓库笔记 */
+.data-warehouse-note {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 15px;
+    padding: 10px;
+    background-color: #f5f5f5;
+    border-radius: 6px;
+    color: #616161;
+}
+
+.note-icon {
+    font-size: 1.2rem;
+    color: #757575;
+}
+
+/* 响应式布局 */
+@media (max-width: 1200px) {
+    .dashboard-container {
+        grid-template-columns: 3fr 2fr;
+    }
+    
+    .stats-grid-4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 992px) {
+    .dashboard-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .stats-grid-4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .project-cards-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .stats-grid-4 {
+        grid-template-columns: 1fr;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* 按钮样式 */
+.clinical-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    background-color: #1976d2;
+    color: white;
+}
+
+.clinical-button:hover {
+    background-color: #1565c0;
+    color: white;
+    text-decoration: none;
+}
+
+.clinical-button.secondary {
+    background-color: #f5f5f5;
+    color: #333;
+    border: 1px solid #e0e0e0;
+}
+
+.clinical-button.secondary:hover {
+    background-color: #e0e0e0;
+    color: #333;
+}
+
+.clinical-button.success {
+    background-color: #4caf50;
+    color: white;
+}
+
+.clinical-button.success:hover {
+    background-color: #388e3c;
+}
+
+.clinical-button.danger {
+    background-color: #f44336;
+    color: white;
+}
+
+.clinical-button.danger:hover {
+    background-color: #d32f2f;
+}
+
+.clinical-button.sm {
+    padding: 5px 10px;
+    font-size: 0.8rem;
+}
+
+/* 快速链接样式 */
+.quick-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px;
+    border-radius: 6px;
+    background-color: #f5f5f5;
+    color: #333;
+    text-decoration: none;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    border: none;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+}
+
+.quick-link:hover {
+    background-color: #e0e0e0;
+    color: #333;
+    text-decoration: none;
+}
+
+.quick-link.danger {
+    color: #dc3545;
+    background-color: #f8d7da;
+}
+
+.quick-link.danger:hover {
+    background-color: #f5c2c7;
+}
+
+/* 信息框样式 */
+.clinical-info-box {
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    margin-bottom: 20px;
+}
+
+.sidebar-box {
+    margin-bottom: 15px;
+}
+
+.info-box-title {
+    padding: 15px 20px;
+    background-color: #f9f9f9;
+    border-bottom: 1px solid #eee;
+    font-weight: 600;
+    color: #333;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.info-box-title i {
+    margin-right: 8px;
+    color: #1976d2;
+}
+
+.info-box-content {
+    padding: 15px 20px;
+}
+
+.add-project-link {
+    font-size: 0.85rem;
+    color: #1976d2;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    text-decoration: none;
+}
+
+.add-project-link:hover {
+    text-decoration: underline;
+}
+
+/* 数据仓库纵向卡片样式 */
+.warehouse-stats-vertical {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 15px;
+}
+
+.warehouse-stat-card {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 12px 15px;
+    border-radius: 10px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.warehouse-stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.warehouse-stat-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.warehouse-stat-content {
+    flex-grow: 1;
+}
+
+.warehouse-stat-number {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 2px;
+    line-height: 1.2;
+}
+
+.warehouse-stat-label {
+    font-size: 0.85rem;
+    color: rgba(0, 0, 0, 0.6);
+}
+
+/* 数据仓库卡片颜色 */
+.warehouse-stat-card.total-records {
+    background-color: #e3f2fd;
+    border-left: 4px solid #2196f3;
+}
+
+.warehouse-stat-card.total-records .warehouse-stat-icon {
+    background-color: #bbdefb;
+    color: #1976d2;
+}
+
+.warehouse-stat-card.disease-types {
+    background-color: #e8f5e9;
+    border-left: 4px solid #4caf50;
+}
+
+.warehouse-stat-card.disease-types .warehouse-stat-icon {
+    background-color: #c8e6c9;
+    color: #388e3c;
+}
+
+.warehouse-stat-card.hospitals {
+    background-color: #fff8e1;
+    border-left: 4px solid #ffc107;
+}
+
+.warehouse-stat-card.hospitals .warehouse-stat-icon {
+    background-color: #ffecb3;
+    color: #ffa000;
+}
+
+.warehouse-stat-card.last-updated {
+    background-color: #f3e5f5;
+    border-left: 4px solid #9c27b0;
+}
+
+.warehouse-stat-card.last-updated .warehouse-stat-icon {
+    background-color: #e1bee7;
+    color: #7b1fa2;
+}
+</style>
+
+{% block scripts %}
+<script>
+    // 调整进度条宽度
+    document.addEventListener('DOMContentLoaded', function() {
+        // 设置进度条宽度
+        document.querySelectorAll('.enrollment-bar').forEach(function(bar) {
+            const width = bar.getAttribute('data-width');
+            // 使用JavaScript设置宽度以避免模板变量与CSS冲突
+            bar.style.width = width + '%';
+        });
+        
+        // 多中心模式复选框控制医生选择区域显示
+        const multiCenterCheckbox = document.getElementById('multi_center_mode');
+        const doctorSelectionArea = document.getElementById('doctorSelectionArea');
+        const doctorListContent = document.getElementById('doctorListContent');
+        const doctorSearchInput = document.getElementById('doctorSearchInput');
+        const searchDoctorBtn = document.getElementById('searchDoctorBtn');
+        
+        // 检查协作项目信息
+        function checkCollaborationInfo() {
+            // 获取所有项目卡片
+            const projectCards = document.querySelectorAll('.project-card');
+            let hasCollaborationInfo = false;
+            
+            // 检查是否有任何卡片包含协作信息
+            projectCards.forEach(card => {
+                if (card.classList.contains('collaborator-project') || 
+                    card.querySelector('.collaborator-badge') || 
+                    card.querySelector('.collaborators-container')) {
+                    hasCollaborationInfo = true;
+                }
+            });
+            
+            // 如果没有协作信息，显示提示信息
+            if (!hasCollaborationInfo && projectCards.length > 0) {
+                // 创建提示元素
+                const infoBox = document.querySelector('.dashboard-middle .clinical-info-box');
+                if (infoBox) {
+                    const notificationElement = document.createElement('div');
+                    notificationElement.className = 'alert alert-info mt-3';
+                    notificationElement.innerHTML = `
+                        <i class="bi bi-info-circle-fill me-2"></i>
+                        <span>当前没有多中心协作项目信息。您可以通过创建多中心项目并邀请其他医生进行协作。</span>
+                    `;
+                    
+                    // 添加到项目卡片区域下方
+                    infoBox.querySelector('.info-box-content').appendChild(notificationElement);
+                }
+            }
+            
+            // 初始化工具提示
+            initializeTooltips();
+        }
+        
+        // 初始化工具提示
+        function initializeTooltips() {
+            const collaboratorTooltips = document.querySelectorAll('.collaborator-tag, .collaborator-badge, .collaborator-badge-sm');
+            collaboratorTooltips.forEach(function(tooltip) {
+                if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+                    new bootstrap.Tooltip(tooltip);
+                }
+            });
+        }
+        
+        // 加载医生列表函数
+        function loadDoctorList(searchTerm = '') {
+            if (!doctorListContent) return;
+            
+            // 显示加载中
+            doctorListContent.innerHTML = `
+                <div class="text-center py-3">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                        <span class="visually-hidden">加载中...</span>
+                    </div>
+                    <span class="ms-2">正在加载医生列表...</span>
+                </div>
+            `;
+            
+            // 发送AJAX请求获取医生列表
+            fetch('/api/available_doctors?search=' + encodeURIComponent(searchTerm), {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('网络请求失败');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.doctors && data.doctors.length > 0) {
+                    // 渲染医生列表
+                    let html = '';
+                    data.doctors.forEach(doctor => {
+                        html += `
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="collaborating_doctors" 
+                                       value="${doctor.id}" id="doctor${doctor.id}">
+                                <label class="form-check-label" for="doctor${doctor.id}">
+                                    ${doctor.name} (${doctor.hospital || '未知医院'})
+                                </label>
+                            </div>
+                        `;
+                    });
+                    doctorListContent.innerHTML = html;
+                } else {
+                    // 没有找到医生
+                    doctorListContent.innerHTML = `
+                        <div class="text-center py-3">
+                            <p class="text-muted mb-0">未找到可选择的协作医生</p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('获取医生列表失败:', error);
+                doctorListContent.innerHTML = `
+                    <div class="text-center py-3">
+                        <p class="text-danger mb-0">
+                            <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                            加载医生列表失败，请刷新重试
+                        </p>
+                    </div>
+                `;
+            });
+        }
+        
+        // 多中心模式切换事件
+        if (multiCenterCheckbox && doctorSelectionArea) {
+            multiCenterCheckbox.addEventListener('change', function() {
+                doctorSelectionArea.style.display = this.checked ? 'block' : 'none';
+                
+                // 当显示医生选择区域时，加载医生列表
+                if (this.checked) {
+                    loadDoctorList();
+                }
+            });
+        }
+        
+        // 搜索医生
+        if (searchDoctorBtn && doctorSearchInput) {
+            searchDoctorBtn.addEventListener('click', function() {
+                loadDoctorList(doctorSearchInput.value.trim());
+            });
+            
+            doctorSearchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    loadDoctorList(this.value.trim());
+                }
+            });
+        }
+        
+        // 显示通知提示函数
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('actionToast');
+            const toastMessage = document.getElementById('toastMessage');
+            
+            // 设置消息和样式
+            toastMessage.textContent = message;
+            
+            // 设置颜色
+            toast.classList.remove('bg-success', 'bg-danger', 'bg-info', 'bg-warning');
+            
+            if (type === 'success') {
+                toast.classList.add('bg-success');
+            } else if (type === 'danger') {
+                toast.classList.add('bg-danger');
+            } else if (type === 'info') {
+                toast.classList.add('bg-info');
+            } else if (type === 'warning') {
+                toast.classList.add('bg-warning');
+            }
+            
+            // 显示通知
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+        }
+        
+        // 检查URL参数以显示相应通知
+        function checkUrlParams() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const action = urlParams.get('action');
+            const status = urlParams.get('status');
+            
+            if (action === 'complete' && status === 'success') {
+                showToast('项目已成功标记为已完结！', 'success');
+            } else if (action === 'delete' && status === 'success') {
+                showToast('项目已成功删除！', 'success');
+            } else if (action === 'create' && status === 'success') {
+                showToast('项目创建成功！', 'success');
+            } else if (status === 'error') {
+                showToast('操作失败，请重试！', 'danger');
+            }
+            
+            // 清除URL参数但不刷新页面
+            if (action || status) {
+                const newUrl = window.location.pathname;
+                window.history.replaceState({}, document.title, newUrl);
+            }
+        }
+        
+        // 页面加载后检查参数
+        checkUrlParams();
+        
+        // 项目完结按钮点击事件
+        document.querySelectorAll('.complete-project-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const projectId = this.getAttribute('data-project-id');
+                const projectName = this.getAttribute('data-project-name');
+                
+                // 设置模态框内容
+                document.getElementById('completeProjectName').textContent = projectName;
+                
+                // 设置表单提交地址
+                const completeForm = document.getElementById('completeProjectForm');
+                completeForm.action = "{{ url_for('doctor_edit_project', project_id=0, action='complete') }}".replace('0', projectId);
+                
+                // 显示模态框
+                const modal = new bootstrap.Modal(document.getElementById('completeProjectModal'));
+                modal.show();
+            });
+        });
+        
+        // 项目删除按钮点击事件
+        document.querySelectorAll('.delete-project-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const projectId = this.getAttribute('data-project-id');
+                const projectName = this.getAttribute('data-project-name');
+                
+                // 设置模态框内容
+                document.getElementById('deleteProjectName').textContent = projectName;
+                
+                // 设置表单提交地址
+                const deleteForm = document.getElementById('deleteProjectForm');
+                deleteForm.action = "{{ url_for('doctor_delete_project', project_id=0) }}".replace('0', projectId);
+                
+                // 显示模态框
+                const modal = new bootstrap.Modal(document.getElementById('deleteProjectModal'));
+                modal.show();
+            });
+        });
+        
+        // 表单提交处理
+        document.getElementById('completeProjectForm').addEventListener('submit', function(e) {
+            const submitBtn = this.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 处理中...';
+        });
+        
+        document.getElementById('deleteProjectForm').addEventListener('submit', function(e) {
+            const submitBtn = this.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 处理中...';
+        });
+        
+        // 新建项目按钮提交处理
+        document.getElementById('submitNewDataset')?.addEventListener('click', function(e) {
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 创建中...';
+        });
+        
+        // 查看详情按钮点击事件
+        document.querySelectorAll('a[href*="doctor_view_project"]').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                // 添加加载状态
+                const originalText = this.innerHTML;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 加载中...';
+                this.classList.add('disabled');
+                
+                // 允许默认导航行为继续
+                // 通过设置 localStorage 来显示导航后的提示
+                localStorage.setItem('lastAction', 'view');
+                localStorage.setItem('projectName', this.closest('.project-card')?.querySelector('h3')?.textContent || '项目');
+            });
+        });
+        
+        // 编辑按钮点击事件
+        document.querySelectorAll('a[href*="doctor_edit_project"]:not([href*="action=complete"])').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                // 添加加载状态
+                const originalText = this.innerHTML;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 加载中...';
+                this.classList.add('disabled');
+                
+                // 允许默认导航行为继续
+                localStorage.setItem('lastAction', 'edit');
+                localStorage.setItem('projectName', this.closest('.project-card')?.querySelector('h3')?.textContent || '项目');
+            });
+        });
+        
+        // 检查是否从其他页面返回
+        if (performance.navigation.type === performance.navigation.TYPE_BACK_FORWARD) {
+            // 恢复按钮状态，避免返回时按钮仍显示加载中
+            document.querySelectorAll('a[href*="doctor_view_project"], a[href*="doctor_edit_project"]:not([href*="action=complete"])').forEach(function(btn) {
+                btn.classList.remove('disabled');
+                if (btn.querySelector('.spinner-border')) {
+                    // 如果有spinner元素，恢复原始内容
+                    if (btn.href.includes('doctor_view_project')) {
+                        btn.innerHTML = '<i class="bi bi-eye"></i> ' + (btn.classList.contains('sm') ? '查看' : '查看详情');
+                    } else {
+                        btn.innerHTML = '<i class="bi bi-pencil"></i> 编辑';
+                    }
+                }
+            });
+        }
+        
+        // 检查是否有上一次操作的记录
+        const lastAction = localStorage.getItem('lastAction');
+        if (lastAction) {
+            const projectName = localStorage.getItem('projectName') || '项目';
+            
+            if (lastAction === 'view') {
+                showToast(`您正在查看"${projectName}"的详情`, 'info');
+            } else if (lastAction === 'edit') {
+                showToast(`您正在编辑"${projectName}"`, 'info');
+            }
+            
+            // 清除记录，避免刷新页面再次显示
+            localStorage.removeItem('lastAction');
+            localStorage.removeItem('projectName');
+        }
+        
+        // 强制添加协作项目信息，确保UI展示效果
+        checkCollaborationInfo();
+    });
+    
+    // 响应式布局处理
+    window.addEventListener('load', function() {
+        adjustLayout();
+    });
+    
+    window.addEventListener('resize', function() {
+        adjustLayout();
+    });
+    
+    function adjustLayout() {
+        const windowWidth = window.innerWidth;
+        
+        // 针对小屏幕设备的额外调整
+        if (windowWidth < 768) {
+            document.querySelectorAll('.project-card').forEach(card => {
+                card.style.maxWidth = '100%';
+            });
+        }
+    }
+</script>
+{% endblock %}
+{% endblock %} 
