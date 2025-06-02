@@ -957,7 +957,7 @@ if (typeof Chart === 'undefined') {
     
     // 全选数据集
     const selectAllDatasets = document.getElementById('select-all-datasets');
-                const datasetSelect = document.getElementById('dataset-select');
+    const datasetSelect = document.getElementById('dataset-select');
     const datasetSelectionStatus = document.getElementById('dataset-selection-status');
     
     if (selectAllDatasets && datasetSelect && datasetSelectionStatus) {
@@ -965,18 +965,18 @@ if (typeof Chart === 'undefined') {
             datasetSelect.disabled = this.checked;
             datasetSelectionStatus.style.display = this.checked ? 'block' : 'none';
                 
-                if (this.checked) {
+            if (this.checked) {
                 const datasetCount = datasetSelect.options.length - 1; // 减去默认选项
                 document.querySelector('.dataset-count').textContent = datasetCount;
-                }
-            });
-        }
+            }
+        });
+    }
         
     // 表单提交处理
-        const analysisForm = document.querySelector('.analysis-form');
-        if (analysisForm) {
-            analysisForm.addEventListener('submit', function(e) {
-                e.preventDefault();
+    const analysisForm = document.querySelector('.analysis-form');
+    if (analysisForm) {
+        analysisForm.addEventListener('submit', function(e) {
+            e.preventDefault();
                 
             // 验证表单
             const selectedDataset = selectAllDatasets.checked || datasetSelect.value;
@@ -984,2570 +984,511 @@ if (typeof Chart === 'undefined') {
             
             if (!selectedDataset) {
                 alert('请选择数据集');
-                        return;
-                }
+                return;
+            }
                 
-                if (selectedVariables.length === 0) {
+            if (selectedVariables.length === 0) {
                 alert('请至少选择一个变量');
-                    return;
-                }
+                return;
+            }
                 
             // 模拟生成结果
             generateResults();
         });
     }
     
-    // 模拟生成结果
-    function generateResults() {
-                const resultPreview = document.querySelector('.result-preview');
-        const selectedDataset = selectAllDatasets.checked ? 'all' : datasetSelect.value;
-        const selectedVariables = [];
-        
-        // 收集选中的变量
-        document.querySelectorAll('input[name="variables"]:checked').forEach(input => {
-            selectedVariables.push(input.value);
-        });
-        
-        // 收集选中的统计量
-        const selectedStats = [];
-        document.querySelectorAll('input[name="stats"]:checked').forEach(input => {
-            selectedStats.push(input.value);
-        });
-        
-        // 显示加载状态
-                resultPreview.innerHTML = `
-            <div class="loading-indicator">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">加载中...</span>
-                        </div>
-                <p>正在从数据库获取数据并生成统计结果，请稍候...</p>
-                    </div>
-                `;
-                
-        // 构建请求参数
-        const requestData = {
-            dataset_ids: selectedDataset === 'all' ? [] : [parseInt(selectedDataset)],
-            variables: selectedVariables,
-            stats: selectedStats
-        };
-        
-        // 发送API请求获取实际数据
-        fetch('/api/analysis/descriptive', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: JSON.stringify(requestData)
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('获取数据失败: ' + response.status);
+    // 描述性统计 - 数据集选择变化时加载变量
+    if (datasetSelect) {
+        datasetSelect.addEventListener('change', function() {
+            const datasetId = this.value;
+            if (datasetId) {
+                loadDatasetVariables(datasetId, 'descriptive');
             }
-            return response.json();
-        })
-        .then(data => {
-            if (!data.success) {
-                throw new Error(data.message || '分析失败');
-            }
-            
-            // 生成结果表格HTML
-            let tableHTML = `
-                <div class="result-content">
-                    <h4>描述性统计结果</h4>
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-hover">
-                        <thead>
-                            <tr>
-                                    <th>变量</th>
-            `;
-            
-            // 添加表头 - 统计量
-            selectedStats.forEach(stat => {
-                tableHTML += `<th>${getStatDisplayName(stat)}</th>`;
-            });
-            
-            tableHTML += `
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
-            
-            // 填充表格数据
-            if (data.results) {
-                let chartLabels = [];
-                let chartData = [];
-                
-                Object.keys(data.results).forEach(varName => {
-                    const varResult = data.results[varName];
-                    chartLabels.push(varName);
-                    
-                    tableHTML += `<tr><td>${varName}</td>`;
-                    
-                    selectedStats.forEach(stat => {
-                        const value = varResult.stats && varResult.stats[stat] !== undefined 
-                            ? formatStatValue(varResult.stats[stat]) 
-                            : 'N/A';
-                        tableHTML += `<td>${value}</td>`;
-                        
-                        // 收集均值数据用于图表
-                        if (stat === 'mean') {
-                            chartData.push(parseFloat(value) || 0);
-                        }
-                    });
-                    
-                    tableHTML += `</tr>`;
-                });
-                
-                tableHTML += `
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="result-chart">
-                        <canvas id="resultChart" width="400" height="200"></canvas>
-                    </div>
-                    <div class="mt-3 text-end">
-                        <button class="clinical-button secondary" onclick="exportResults()">
-                            <i class="bi bi-download"></i> 导出结果
-                        </button>
-                    </div>
-                </div>
-                `;
-                
-                resultPreview.innerHTML = tableHTML;
-                
-                // 绘制实际数据的图表
-                try {
-                    if (typeof Chart !== 'undefined' && chartLabels.length > 0) {
-                        const canvas = document.getElementById('resultChart');
-                        if (canvas) {
-                            const ctx = canvas.getContext('2d');
-                            new Chart(ctx, {
-                                type: 'bar',
-                                data: {
-                                    labels: chartLabels,
-                                    datasets: [{
-                                        label: '均值',
-                                        data: chartData,
-                                        backgroundColor: chartLabels.map((_, i) => {
-                                            const colors = [
-                                                'rgba(54, 162, 235, 0.5)',
-                                                'rgba(75, 192, 192, 0.5)',
-                                                'rgba(255, 159, 64, 0.5)',
-                                                'rgba(153, 102, 255, 0.5)',
-                                                'rgba(255, 99, 132, 0.5)'
-                                            ];
-                                            return colors[i % colors.length];
-                                        }),
-                                        borderColor: chartLabels.map((_, i) => {
-                                            const colors = [
-                                                'rgba(54, 162, 235, 1)',
-                                                'rgba(75, 192, 192, 1)',
-                                                'rgba(255, 159, 64, 1)',
-                                                'rgba(153, 102, 255, 1)',
-                                                'rgba(255, 99, 132, 1)'
-                                            ];
-                                            return colors[i % colors.length];
-                                        }),
-                                        borderWidth: 1
-                                    }]
-                                },
-                                options: {
-                                    responsive: true,
-                                    maintainAspectRatio: false,
-                                    scales: {
-                                        y: {
-                                            beginAtZero: true,
-                                            title: {
-                                                display: true,
-                                                text: '数值'
-                                            }
-                                        },
-                                        x: {
-                                            title: {
-                                                display: true,
-                                                text: '变量'
-                                            }
-                                        }
-                                    },
-                                    plugins: {
-                                        title: {
-                                            display: true,
-                                            text: '变量均值比较'
-                                        },
-                                        legend: {
-                                            position: 'top',
-                                        }
-                                    }
-                                }
-                            });
-                        } else {
-                            console.error('无法找到Canvas元素');
-                            showFallbackChart('找不到图表渲染元素');
-                        }
-                    } else {
-                        console.error('Chart.js库未加载或没有数据可显示');
-                        showFallbackChart('图表库未加载或没有数据');
-                    }
-                } catch (error) {
-                    console.error('图表渲染错误:', error);
-                    showFallbackChart(error.message);
-                }
-            } else {
-                resultPreview.innerHTML = `
-                    <div class="alert alert-warning">
-                        <i class="bi bi-exclamation-triangle"></i>
-                        <p>未能获取到数据，请检查选择的变量或数据集。</p>
-                    </div>
-                `;
-            }
-        })
-        .catch(error => {
-            console.error('分析错误:', error);
-            resultPreview.innerHTML = `
-                <div class="analysis-error">
-                    <i class="bi bi-exclamation-triangle"></i>
-                    <p>分析过程中出现错误: ${error.message}</p>
-                    <div class="error-details">
-                        <small>请检查您的输入参数或联系系统管理员</small>
-                    </div>
-                    <button class="clinical-button secondary mt-3" onclick="generateResults()">重试</button>
-                </div>
-            `;
         });
     }
     
-    // 显示后备图表
-    function showFallbackChart(errorMessage = '图表加载失败') {
-        const chartContainer = document.querySelector('.result-chart');
-        if (chartContainer) {
-            chartContainer.innerHTML = `
-                <div style="width:100%; height:200px; background-color:#f8f9fa; border:1px solid #dee2e6; border-radius:4px; display:flex; align-items:center; justify-content:center;">
-                    <div style="text-align:center;">
-                        <i class="bi bi-bar-chart" style="font-size:36px; color:#6c757d;"></i>
-                        <p>${errorMessage}</p>
-                    </div>
-                </div>
-            `;
-        }
-    }
-    
-    // 获取统计量的显示名称
-    function getStatDisplayName(stat) {
-        const statNames = {
-            'mean': '均值',
-            'median': '中位数',
-            'sd': '标准差',
-            'var': '方差',
-            'min': '最小值',
-            'max': '最大值',
-            'q1': '第一四分位数',
-            'q3': '第三四分位数',
-            'skewness': '偏度',
-            'kurtosis': '峰度'
-        };
-        return statNames[stat] || stat;
-    }
-    
-    // 格式化统计值
-    function formatStatValue(value) {
-        if (value === null || value === undefined) {
-            return 'N/A';
-        }
-        
-        if (typeof value === 'number') {
-            // 检查是否为整数
-            if (Number.isInteger(value)) {
-                return value.toString();
+    // 假设检验 - 数据集选择变化时加载变量
+    const hypothesisDatasetSelect = document.getElementById('dataset-select-hypothesis');
+    if (hypothesisDatasetSelect) {
+        hypothesisDatasetSelect.addEventListener('change', function() {
+            const datasetId = this.value;
+            if (datasetId) {
+                loadDatasetVariables(datasetId, 'hypothesis');
             }
-            
-            // 如果是小数，保留两位小数
-            return value.toFixed(2);
-        }
-        
-        return value;
+        });
     }
     
-    // 导出结果
-    function exportResults() {
-        alert('导出功能开发中，即将支持Excel、CSV和PDF格式导出');
+    // 相关性分析 - 数据集选择变化时加载变量
+    const correlationDatasetSelect = document.getElementById('dataset-select-correlation');
+    if (correlationDatasetSelect) {
+        correlationDatasetSelect.addEventListener('change', function() {
+            const datasetId = this.value;
+            if (datasetId) {
+                loadDatasetVariables(datasetId, 'correlation');
+            }
+        });
     }
+});
+
+// 模拟生成结果
+function generateResults() {
+    const resultPreview = document.querySelector('.result-preview');
+    const selectedDataset = selectAllDatasets.checked ? 'all' : datasetSelect.value;
+    const selectedVariables = [];
     
-    // 初始化所有其他表单
-    const allForms = [
-        { id: 'hypothesisForm', resetBtn: 'resetHypothesisBtn', toolId: 'hypothesis' },
-        { id: 'correlationForm', resetBtn: 'resetCorrelationBtn', toolId: 'correlation' },
-        { id: 'regressionForm', resetBtn: 'resetRegressionBtn', toolId: 'regression' },
-        { id: 'survivalForm', resetBtn: 'resetSurvivalBtn', toolId: 'survival' },
-        { id: 'riskForm', resetBtn: 'resetRiskBtn', toolId: 'risk' },
-        { id: 'outcomeForm', resetBtn: 'resetOutcomeBtn', toolId: 'outcome' },
-        { id: 'chartsForm', resetBtn: 'resetChartsBtn', toolId: 'charts' },
-        { id: 'reportsForm', resetBtn: 'resetReportsBtn', toolId: 'reports' }
-    ];
-    
-    // 为每个表单添加提交和重置事件
-    allForms.forEach(form => {
-        const formElement = document.getElementById(form.id);
-        const resetBtn = document.getElementById(form.resetBtn);
-        
-        if (formElement) {
-            formElement.addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                // 验证表单 - 简单检查是否选择了数据集
-                const datasetSelect = this.querySelector(`#dataset-select-${form.toolId}`);
-                if (datasetSelect && !datasetSelect.value) {
-                    alert('请选择数据集');
-                    return;
-                }
-                
-                // 显示结果处理中状态
-                const resultPreview = document.querySelector('.result-preview');
-                resultPreview.innerHTML = `
-                    <div class="loading-indicator">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">加载中...</span>
-                        </div>
-                        <p>正在处理${getToolName(form.toolId)}请求，请稍候...</p>
-                    </div>
-                `;
-                
-                // 为假设检验单独处理，其他工具仍使用模拟数据
-                if(form.toolId === 'hypothesis') {
-                    // 收集表单数据
-                    const testType = document.querySelector('select[name="test_type"]').value;
-                    const alpha = parseFloat(document.querySelector('select[name="alpha"]').value);
-                    const groupVariable = document.querySelector('select[name="group_variable"]').value;
-                    
-                    // 获取选中的变量
-                    const selectedVars = [];
-                    document.querySelectorAll('input[name="hypothesis_variables"]:checked').forEach(checkbox => {
-                        selectedVars.push(checkbox.value);
-                    });
-                    
-                    if(selectedVars.length === 0) {
-                        alert('请至少选择一个变量进行检验');
-                        return;
-                    }
-                    
-                    // 模拟处理延迟后显示结果
-                    setTimeout(() => {
-                        showHypothesisTestResults(testType, selectedVars, groupVariable, alpha, resultPreview);
-                    }, 1000);
-                } else if(form.toolId === 'correlation') {
-                    // 收集相关性分析表单数据
-                    const correlationType = document.querySelector('select[name="correlation_type"]').value;
-                    const significanceTest = document.querySelector('input[name="significance_test"]').checked;
-                    
-                    // 获取选中的变量
-                    const selectedVars = [];
-                    document.querySelectorAll('input[name="correlation_variables"]:checked').forEach(checkbox => {
-                        selectedVars.push(checkbox.value);
-                    });
-                    
-                    // 收集可视化选项
-                    const visualizeOptions = [];
-                    document.querySelectorAll('input[name="visualize"]:checked').forEach(checkbox => {
-                        visualizeOptions.push(checkbox.value);
-                    });
-                    
-                    if(selectedVars.length < 2) {
-                        alert('请至少选择两个变量进行相关性分析');
-                        return;
-                    }
-                    
-                    // 模拟处理延迟后显示结果
-                    setTimeout(() => {
-                        showCorrelationResults(correlationType, selectedVars, significanceTest, visualizeOptions, resultPreview);
-                    }, 1000);
-                } else {
-                    // 其他工具仍使用原来的模拟显示
-                    setTimeout(() => {
-                        // 显示本地图表
-                        resultPreview.innerHTML = `
-                            <div class="result-content">
-                                <h4>${getToolName(form.toolId)}结果</h4>
-                                <div class="alert alert-info">
-                                    <i class="bi bi-info-circle"></i> 分析已完成，示例结果如下。
-                                </div>
-                                <div class="text-center py-4">
-                                    <div style="width:100%; height:300px; background-color:#f8f9fa; border:1px solid #dee2e6; border-radius:4px; display:flex; align-items:center; justify-content:center; margin-bottom:10px;">
-                                        <div style="text-align:center;">
-                                            <i class="bi bi-${getToolIcon(form.toolId)}" style="font-size:48px; color:#6c757d;"></i>
-                                            <p>${getToolName(form.toolId)}可视化</p>
-                                            <p class="text-muted">图表正在优化中...</p>
-                                        </div>
-                                    </div>
-                                    <p class="text-muted">* 此图表会在后续版本中替换为实际数据可视化</p>
-                                </div>
-                            </div>
-                        `;
-                    }, 1000);
-                }
-            });
-        }
-        
-        // 添加重置按钮事件
-        if (resetBtn) {
-            resetBtn.addEventListener('click', function() {
-                const form = document.getElementById(form.id);
-                if (form) {
-                    form.reset();
-                }
-            });
-        }
+    // 收集选中的变量
+    document.querySelectorAll('input[name="variables"]:checked').forEach(input => {
+        selectedVariables.push(input.value);
     });
     
-    // 获取工具名称
-    function getToolName(toolId) {
-        const toolNames = {
-            'descriptive': '描述性统计',
-            'hypothesis': '假设检验',
-            'correlation': '相关性分析',
-            'regression': '回归分析',
-            'survival': '生存分析',
-            'risk': '风险评估',
-            'outcome': '结局预测',
-            'charts': '图表生成',
-            'reports': '自动报告'
-        };
-        
-        return toolNames[toolId] || toolId;
-    }
+    // 收集选中的统计量
+    const selectedStats = [];
+    document.querySelectorAll('input[name="stats"]:checked').forEach(input => {
+        selectedStats.push(input.value);
+    });
     
-    // 获取工具图标
-    function getToolIcon(toolId) {
-        const toolIcons = {
-            'descriptive': 'clipboard-data',
-            'hypothesis': '123',
-            'correlation': 'arrow-down-up',
-            'regression': 'graph-up-arrow',
-            'survival': 'activity',
-            'risk': 'shield-check',
-            'outcome': 'clipboard-check',
-            'charts': 'bar-chart',
-            'reports': 'file-earmark-text'
-        };
-        
-        return toolIcons[toolId] || 'bar-chart';
-    }
-    
-    // 显示假设检验结果
-    function showHypothesisTestResults(testType, variables, groupVariable, alpha, container) {
-        // 这里是模拟结果，实际中应通过API获取
-        
-        let resultHTML = `
-            <div class="result-content">
-                <h4>${getTestTypeName(testType)}结果</h4>
-        `;
-        
-        // 根据不同的测试类型，显示不同的结果
-        switch(testType) {
-            case 'ttest':
-                // 模拟t检验结果
-                const pValue = Math.random();
-                const significant = pValue < alpha;
-                const tStat = (Math.random() * 5) - 2.5;
-                
-                resultHTML += `
-                    <div class="result-table-container">
-                        <table class="table table-bordered">
-                            <thead>
-                                <tr>
-                                    <th>变量</th>
-                                    <th>t统计量</th>
-                                    <th>p值</th>
-                                    <th>自由度</th>
-                                    <th>结论</th>
-                    </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>${variables[0]}</td>
-                                    <td>${tStat.toFixed(3)}</td>
-                                    <td>${pValue.toFixed(4)}${significant ? ' *' : ''}</td>
-                                    <td>42</td>
-                                    <td>${significant ? '拒绝原假设' : '接受原假设'}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    <div class="result-interpretation mt-3">
-                        <h5>结果解释</h5>
-                        <p>
-                            ${significant ? 
-                                `在显著性水平α=${alpha}下，t检验结果显示两组间存在显著差异 (t=${tStat.toFixed(3)}, p=${pValue.toFixed(4)})。` : 
-                                `在显著性水平α=${alpha}下，t检验结果未能显示两组间存在显著差异 (t=${tStat.toFixed(3)}, p=${pValue.toFixed(4)})。`
-                            }
-                        </p>
-                    </div>
-                    
-                    <div class="chart-container mt-4" id="ttest_chart" style="height:300px;"></div>
-                `;
-                
-                // 渲染图表代码移到setTimeout中
-                setTimeout(() => {
-                    renderTTestChart(variables[0], groupVariable, significant, tStat, pValue);
-                }, 50);
-                break;
-                
-            case 'chi2':
-                // 模拟卡方检验结果
-                const chiSq = Math.random() * 10;
-                const chiPValue = Math.random();
-                const chiSignificant = chiPValue < alpha;
-                
-                // 创建分类数据
-                const categories = ['类别A', '类别B', '类别C'];
-                const group1Counts = [25, 15, 10];
-                const group2Counts = [15, 20, 15];
-                
-                resultHTML += `
-                    <div class="result-table-container">
-                        <table class="table table-bordered">
-                            <thead>
-                                <tr>
-                                    <th>${groupVariable}</th>
-                                    ${categories.map(cat => `<th>${cat}</th>`).join('')}
-                                    <th>总计</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>组1</td>
-                                    ${group1Counts.map(count => `<td>${count}</td>`).join('')}
-                                    <td>${group1Counts.reduce((a, b) => a + b, 0)}</td>
-                                </tr>
-                                <tr>
-                                    <td>组2</td>
-                                    ${group2Counts.map(count => `<td>${count}</td>`).join('')}
-                                    <td>${group2Counts.reduce((a, b) => a + b, 0)}</td>
-                                </tr>
-                                <tr>
-                                    <td>总计</td>
-                                    ${categories.map((_, i) => `<td>${group1Counts[i] + group2Counts[i]}</td>`).join('')}
-                                    <td>${group1Counts.reduce((a, b) => a + b, 0) + group2Counts.reduce((a, b) => a + b, 0)}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    <div class="result-table-container mt-4">
-                        <table class="table table-bordered">
-                            <thead>
-                                <tr>
-                                    <th>变量</th>
-                                    <th>卡方统计量</th>
-                                    <th>p值</th>
-                                    <th>自由度</th>
-                                    <th>结论</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>${variables[0]} vs ${groupVariable}</td>
-                                    <td>${chiSq.toFixed(3)}</td>
-                                    <td>${chiPValue.toFixed(4)}${chiSignificant ? ' *' : ''}</td>
-                                    <td>${categories.length - 1}</td>
-                                    <td>${chiSignificant ? '拒绝原假设' : '接受原假设'}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    <div class="result-interpretation mt-3">
-                        <h5>结果解释</h5>
-                        <p>
-                            ${chiSignificant ? 
-                                `在显著性水平α=${alpha}下，卡方检验结果显示变量之间存在显著关联 (χ²=${chiSq.toFixed(3)}, p=${chiPValue.toFixed(4)})。这表明${variables[0]}的分布在不同${groupVariable}组别中存在显著差异。` : 
-                                `在显著性水平α=${alpha}下，卡方检验结果未能显示变量之间存在显著关联 (χ²=${chiSq.toFixed(3)}, p=${chiPValue.toFixed(4)})。这表明${variables[0]}的分布在不同${groupVariable}组别中没有显著差异。`
-                            }
-                        </p>
-                    </div>
-                    
-                    <div class="chart-container mt-4" id="chi2_chart" style="height:300px;"></div>
-                `;
-                
-                setTimeout(() => {
-                    renderChiSquareChart(categories, group1Counts, group2Counts, chiSignificant, chiSq, chiPValue);
-                }, 50);
-                break;
-                
-            case 'anova':
-                // 模拟ANOVA结果
-                const fStat = Math.random() * 8;
-                const anovaPValue = Math.random();
-                const anovaSignificant = anovaPValue < alpha;
-                
-                // 创建三组模拟数据
-                const groups = ['组A', '组B', '组C'];
-                
-                // 计算组间均值和标准差
-                const groupMeans = [30, 35, 28];
-                const groupSDs = [5, 6, 4];
-                
-                resultHTML += `
-                    <div class="result-table-container">
-                        <table class="table table-bordered">
-                            <thead>
-                                <tr>
-                                    <th>变异来源</th>
-                                    <th>平方和</th>
-                                    <th>自由度</th>
-                                    <th>均方</th>
-                                    <th>F统计量</th>
-                                    <th>p值</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>组间</td>
-                                    <td>${(Math.random() * 1000).toFixed(2)}</td>
-                                    <td>${groups.length - 1}</td>
-                                    <td>${(Math.random() * 500).toFixed(2)}</td>
-                                    <td>${fStat.toFixed(3)}</td>
-                                    <td>${anovaPValue.toFixed(4)}${anovaSignificant ? ' *' : ''}</td>
-                                </tr>
-                                <tr>
-                                    <td>组内</td>
-                                    <td>${(Math.random() * 5000).toFixed(2)}</td>
-                                    <td>97</td>
-                                    <td>${(Math.random() * 100).toFixed(2)}</td>
-                                    <td></td>
-                                    <td></td>
-                                </tr>
-                                <tr>
-                                    <td>总计</td>
-                                    <td>${(Math.random() * 6000).toFixed(2)}</td>
-                                    <td>99</td>
-                                    <td></td>
-                                    <td></td>
-                                    <td></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    <div class="result-table-container mt-4">
-                        <h5>描述性统计</h5>
-                        <table class="table table-bordered">
-                            <thead>
-                                <tr>
-                                    <th>${groupVariable}</th>
-                                    <th>样本量</th>
-                                    <th>均值</th>
-                                    <th>标准差</th>
-                                    <th>标准误</th>
-                                    <th>95%置信区间下限</th>
-                                    <th>95%置信区间上限</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${groups.map((group, i) => `
-                                    <tr>
-                                        <td>${group}</td>
-                                        <td>30</td>
-                                        <td>${groupMeans[i].toFixed(2)}</td>
-                                        <td>${groupSDs[i].toFixed(2)}</td>
-                                        <td>${(groupSDs[i] / Math.sqrt(30)).toFixed(2)}</td>
-                                        <td>${(groupMeans[i] - 1.96 * groupSDs[i] / Math.sqrt(30)).toFixed(2)}</td>
-                                        <td>${(groupMeans[i] + 1.96 * groupSDs[i] / Math.sqrt(30)).toFixed(2)}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    <div class="result-interpretation mt-3">
-                        <h5>结果解释</h5>
-                        <p>
-                            ${anovaSignificant ? 
-                                `在显著性水平α=${alpha}下，方差分析结果显示${variables[0]}在不同${groupVariable}组别间存在显著差异 (F=${fStat.toFixed(3)}, p=${anovaPValue.toFixed(4)})。` : 
-                                `在显著性水平α=${alpha}下，方差分析结果未能显示${variables[0]}在不同${groupVariable}组别间存在显著差异 (F=${fStat.toFixed(3)}, p=${anovaPValue.toFixed(4)})。`
-                            }
-                        </p>
-                        ${anovaSignificant ? 
-                            `<p>由于方差分析结果显著，可以进一步进行事后比较（如Tukey HSD检验）来确定哪些组之间存在显著差异。</p>` : 
-                            ''
-                        }
-                    </div>
-                    
-                    <div class="chart-container mt-4"><canvas id="anova_chart" style="height:300px;"></canvas></div>
-                `;
-                
-                setTimeout(() => {
-                    renderAnovaChart(groups, groupMeans, groupSDs, anovaSignificant, fStat, anovaPValue);
-                }, 50);
-                break;
-                
-            default:
-                resultHTML += `
-                    <div class="result-interpretation mt-3">
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle"></i>
-                            <p>已收到 ${testType} 检验请求，此检验类型的详细结果显示正在开发中。</p>
-                            <p>请使用t检验、卡方检验或方差分析获取更完整的分析结果。</p>
-                        </div>
-                    </div>
-                `;
-        }
-        
-        resultHTML += `
-                <div class="mt-4 text-end">
-                    <button class="clinical-button secondary" onclick="downloadHypothesisResults()">
-                        <i class="bi bi-download"></i> 下载检验结果
-            </button>
-                </div>
+    // 显示加载状态
+    resultPreview.innerHTML = `
+        <div class="loading-indicator">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">加载中...</span>
             </div>
-        `;
-        
-        container.innerHTML = resultHTML;
-    }
-    
-    // 获取检验类型的中文名称
-    function getTestTypeName(testType) {
-        const testNames = {
-            'ttest': 't检验',
-            'paired_ttest': '配对t检验',
-            'anova': '方差分析',
-            'chi2': '卡方检验',
-            'fisher': 'Fisher精确检验',
-            'wilcoxon': 'Wilcoxon秩和检验',
-            'kruskal': 'Kruskal-Wallis检验'
-        };
-        
-        return testNames[testType] || testType;
-    }
-    
-    // 绘制t检验图表
-    function renderTTestChart(variable, groupVar, significant, tStat, pValue) {
-        try {
-            if (typeof Chart === 'undefined') {
-                console.error('Chart.js未加载');
-                return;
-            }
-            
-            const ctx = document.getElementById('ttest_chart').getContext('2d');
-            
-            // 创建两组模拟数据
-            const group1 = generateNormalData(30, 40, 10);
-            const group2 = generateNormalData(30, 40 + (significant ? 15 : 5), 10);
-            
-            // 计算两组的统计量
-            const group1Stats = {
-                min: Math.min(...group1),
-                q1: percentile(group1, 25),
-                median: percentile(group1, 50),
-                q3: percentile(group1, 75),
-                max: Math.max(...group1)
-            };
-            
-            const group2Stats = {
-                min: Math.min(...group2),
-                q1: percentile(group2, 25),
-                median: percentile(group2, 50),
-                q3: percentile(group2, 75),
-                max: Math.max(...group2)
-            };
-            
-            // 创建箱线图数据
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ['组1', '组2'],
-                    datasets: [{
-                        label: variable,
-                        data: [
-                            calculateMean(group1),
-                            calculateMean(group2)
-                        ],
-                        backgroundColor: ['rgba(74, 137, 220, 0.5)', 'rgba(220, 74, 74, 0.5)'],
-                        borderColor: ['rgba(74, 137, 220, 1)', 'rgba(220, 74, 74, 1)'],
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: `${variable} 在 ${groupVar} 不同组别的比较`
-                        },
-                        legend: {
-                            display: false
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: false,
-                            title: {
-                                display: true,
-                                text: variable
-                            }
-                        }
-                    }
-                }
-            });
-            
-            // 添加t检验结果标注
-            const annotation = document.createElement('div');
-            annotation.className = 'text-center mt-2';
-            annotation.innerHTML = `
-                <div class="alert ${significant ? 'alert-danger' : 'alert-secondary'} py-2">
-                    t = ${tStat.toFixed(3)}, p = ${pValue.toFixed(4)}${significant ? ' <strong>*</strong>' : ''}
-                    (${significant ? '组间差异显著' : '组间差异不显著'})
-                </div>
-            `;
-            document.getElementById('ttest_chart').parentNode.appendChild(annotation);
-            
-        } catch (error) {
-            console.error('绘制t检验图表错误:', error);
-            document.getElementById('ttest_chart').innerHTML = `
-                <div class="alert alert-danger">
-                    图表渲染错误: ${error.message}
-                </div>
-            `;
-        }
-    }
-    
-    // 绘制卡方检验图表
-    function renderChiSquareChart(categories, group1Counts, group2Counts, significant, chiSq, pValue) {
-        try {
-            if (typeof Chart === 'undefined') {
-                console.error('Chart.js未加载');
-                return;
-            }
-            
-            const ctx = document.getElementById('chi2_chart').getContext('2d');
-            
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: categories,
-                    datasets: [
-                        {
-                            label: '组1',
-                            data: group1Counts,
-                            backgroundColor: 'rgba(74, 137, 220, 0.6)',
-                            borderColor: 'rgba(74, 137, 220, 1)',
-                            borderWidth: 1
-                        },
-                        {
-                            label: '组2',
-                            data: group2Counts,
-                            backgroundColor: 'rgba(220, 74, 74, 0.6)',
-                            borderColor: 'rgba(220, 74, 74, 1)',
-                            borderWidth: 1
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: '不同组别中的分布'
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: '频数'
-                            }
-                        },
-                        x: {
-                            title: {
-                                display: true,
-                                text: '类别'
-                            }
-                        }
-                    }
-                }
-            });
-            
-            // 添加卡方检验结果标注
-            const annotation = document.createElement('div');
-            annotation.className = 'text-center mt-2';
-            annotation.innerHTML = `
-                <div class="alert ${significant ? 'alert-danger' : 'alert-secondary'} py-2">
-                    χ² = ${chiSq.toFixed(3)}, p = ${pValue.toFixed(4)}${significant ? ' <strong>*</strong>' : ''}
-                    (${significant ? '组间差异显著' : '组间差异不显著'})
-                </div>
-            `;
-            document.getElementById('chi2_chart').parentNode.appendChild(annotation);
-            
-        } catch (error) {
-            console.error('绘制卡方检验图表错误:', error);
-            document.getElementById('chi2_chart').innerHTML = `
-                <div class="alert alert-danger">
-                    图表渲染错误: ${error.message}
-                </div>
-            `;
-        }
-    }
-    
-    // 绘制ANOVA图表
-    function renderAnovaChart(groups, groupMeans, groupSDs, significant, fStat, pValue) {
-        try {
-            if (typeof Chart === 'undefined') {
-                console.error('Chart.js未加载');
-                return;
-            }
-            
-            const ctx = document.getElementById('anova_chart').getContext('2d');
-            
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: groups,
-                    datasets: [{
-                        label: '均值',
-                        data: groupMeans,
-                        backgroundColor: groups.map((_, i) => `rgba(${74 + i*50}, ${137 - i*30}, ${220 - i*50}, 0.6)`),
-                        borderColor: groups.map((_, i) => `rgba(${74 + i*50}, ${137 - i*30}, ${220 - i*50}, 1)`),
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: '不同组别中的均值比较'
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: false,
-                            title: {
-                                display: true,
-                                text: '值'
-                            }
-                        }
-                    }
-                }
-            });
-            
-            // 添加ANOVA结果标注
-            const annotation = document.createElement('div');
-            annotation.className = 'text-center mt-2';
-            annotation.innerHTML = `
-                <div class="alert ${significant ? 'alert-danger' : 'alert-secondary'} py-2">
-                    F = ${fStat.toFixed(3)}, p = ${pValue.toFixed(4)}${significant ? ' <strong>*</strong>' : ''}
-                    (${significant ? '组间差异显著' : '组间差异不显著'})
-                </div>
-            `;
-            document.getElementById('anova_chart').parentNode.appendChild(annotation);
-            
-        } catch (error) {
-            console.error('绘制ANOVA图表错误:', error);
-            const chartContainer = document.getElementById('anova_chart').parentNode;
-            chartContainer.innerHTML = `
-                <div class="alert alert-danger">
-                    图表渲染错误: ${error.message}
-                </div>
-            `;
-        }
-    }
-    
-    // 生成服从正态分布的随机数据
-    function generateNormalData(n, mean, stdDev) {
-        const data = [];
-        for (let i = 0; i < n; i++) {
-            // Box-Muller变换生成正态分布
-            let u = 0, v = 0;
-            while (u === 0) u = Math.random();
-            while (v === 0) v = Math.random();
-            let z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
-            
-            // 调整均值和标准差
-            data.push(z * stdDev + mean);
-        }
-        return data;
-    }
-    
-    // 计算百分位数
-    function percentile(data, p) {
-        if (data.length === 0) return 0;
-        if (p <= 0) return Math.min(...data);
-        if (p >= 100) return Math.max(...data);
-        
-        // 排序数据
-        const sorted = [...data].sort((a, b) => a - b);
-        
-        const index = (p / 100) * (sorted.length - 1);
-        const lower = Math.floor(index);
-        const upper = Math.ceil(index);
-        const weight = index - lower;
-        
-        if (upper === lower) return sorted[index];
-        return sorted[lower] * (1 - weight) + sorted[upper] * weight;
-    }
-    
-    // 计算均值
-    function calculateMean(data) {
-        if (data.length === 0) return 0;
-        return data.reduce((sum, value) => sum + value, 0) / data.length;
-    }
-    
-    // 计算标准差
-    function calculateStdDev(data) {
-        if (data.length <= 1) return 0;
-        const avg = calculateMean(data);
-        const squareDiffs = data.map(value => {
-            const diff = value - avg;
-            return diff * diff;
-        });
-        const variance = squareDiffs.reduce((sum, value) => sum + value, 0) / (data.length - 1);
-        return Math.sqrt(variance);
-    }
-    
-    // 下载假设检验结果
-    function downloadHypothesisResults() {
-        alert('检验结果下载功能正在开发中，敬请期待');
-    }
-    
-    // 显示相关性分析结果
-    function showCorrelationResults(correlationType, variables, significanceTest, visualizeOptions, container) {
-        // 这里是模拟结果，实际中应通过API获取
-        
-        let resultHTML = `
-            <div class="result-content">
-                <h4>${getCorrelationTypeName(correlationType)}相关分析结果</h4>
+            <p>正在从数据库获取数据并生成统计结果，请稍候...</p>
+        </div>
+    `;
                 
-                <div class="result-table-container">
-                    <table class="table table-bordered">
-                        <thead>
-                            <tr>
+    // 构建请求参数
+    const requestData = {
+        dataset_ids: selectedDataset === 'all' ? [] : [parseInt(selectedDataset)],
+        variables: selectedVariables,
+        stats: selectedStats
+    };
+    
+    // 发送API请求获取实际数据
+    fetch('/api/analysis/descriptive', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('获取数据失败: ' + response.status);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (!data.success) {
+            throw new Error(data.message || '分析失败');
+        }
+        
+        // 生成结果表格HTML
+        let tableHTML = `
+            <div class="result-content">
+                <h4>描述性统计结果</h4>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover">
+                    <thead>
+                        <tr>
                                 <th>变量</th>
         `;
         
-        // 添加表头 - 所有变量
-        variables.forEach(variable => {
-            resultHTML += `<th>${variable}</th>`;
+        // 添加表头 - 统计量
+        selectedStats.forEach(stat => {
+            tableHTML += `<th>${getStatDisplayName(stat)}</th>`;
         });
         
-        resultHTML += `
-                            </tr>
-                        </thead>
-                        <tbody>
+        tableHTML += `
+                        </tr>
+                    </thead>
+                    <tbody>
         `;
         
-        // 生成模拟相关系数
-        const correlationMatrix = [];
-        variables.forEach(() => {
-            const row = [];
-            variables.forEach(() => {
-                row.push(0); // 初始化为0
-            });
-            correlationMatrix.push(row);
-        });
-        
-        // 填充相关系数矩阵 (对称矩阵)
-        for (let i = 0; i < variables.length; i++) {
-            for (let j = i; j < variables.length; j++) {
-                if (i === j) {
-                    correlationMatrix[i][j] = 1; // 对角线上为1
-                } else {
-                    // 生成-1到1之间的随机相关系数
-                    const corrCoef = (Math.random() * 2) - 1;
-                    correlationMatrix[i][j] = corrCoef;
-                    correlationMatrix[j][i] = corrCoef; // 对称性
-                }
-            }
-        }
-        
-        // 添加相关系数矩阵行
-        variables.forEach((rowVar, i) => {
-            resultHTML += `<tr><td>${rowVar}</td>`;
+        // 填充表格数据
+        if (data.results) {
+            let chartLabels = [];
+            let chartData = [];
             
-            variables.forEach((_, j) => {
-                const corrCoef = correlationMatrix[i][j];
-                // 判断是否显著 (模拟数据，实际应根据样本量和相关系数计算p值)
-                const isSignificant = significanceTest && Math.abs(corrCoef) > 0.5;
+            Object.keys(data.results).forEach(varName => {
+                const varResult = data.results[varName];
+                chartLabels.push(varName);
                 
-                // 设置样式类
-                let cellClass = '';
-                if (i === j) {
-                    cellClass = 'table-secondary'; // 对角线单元格
-                } else if (isSignificant) {
-                    cellClass = corrCoef > 0 ? 'table-success' : 'table-danger';
-                }
+                tableHTML += `<tr><td>${varName}</td>`;
                 
-                // 添加单元格，显著的相关系数加星号
-                resultHTML += `
-                    <td class="${cellClass}">
-                        ${i === j ? '1.000' : corrCoef.toFixed(3)}${isSignificant ? ' *' : ''}
-                    </td>
-                `;
+                selectedStats.forEach(stat => {
+                    const value = varResult.stats && varResult.stats[stat] !== undefined 
+                        ? formatStatValue(varResult.stats[stat]) 
+                        : 'N/A';
+                    tableHTML += `<td>${value}</td>`;
+                    
+                    // 收集均值数据用于图表
+                    if (stat === 'mean') {
+                        chartData.push(parseFloat(value) || 0);
+                    }
+                });
+                
+                tableHTML += `</tr>`;
             });
             
-            resultHTML += `</tr>`;
-        });
-        
-        resultHTML += `
+            tableHTML += `
                         </tbody>
                     </table>
                 </div>
-                
-                <div class="result-interpretation mt-3">
-                    <h5>结果解释</h5>
-                    <p>
-                        上表展示了所选变量之间的${getCorrelationTypeName(correlationType)}相关系数。
-                        相关系数范围从-1到1，接近1表示强正相关，接近-1表示强负相关，接近0表示无相关。
-                        ${significanceTest ? '标记*的系数表示在α=0.05水平上具有统计显著性。' : ''}
-                    </p>
+                <div class="result-chart">
+                    <canvas id="resultChart" width="400" height="200"></canvas>
                 </div>
-        `;
-        
-        // 如果包含热力图可视化
-        if (visualizeOptions.includes('heatmap')) {
-            resultHTML += `
-                <div class="mt-4">
-                    <h5>相关性热力图</h5>
-                    <div class="chart-container" id="correlation_heatmap" style="height:400px;"></div>
-                </div>
-            `;
-        }
-        
-        // 如果包含散点图可视化，并且至少有两个变量
-        if (visualizeOptions.includes('scatter') && variables.length >= 2) {
-            resultHTML += `
-                <div class="mt-4">
-                    <h5>相关性散点图</h5>
-                    <div class="chart-container" id="correlation_scatter" style="height:300px;"></div>
-                </div>
-            `;
-        }
-        
-        // 添加导出按钮
-        resultHTML += `
-                <div class="mt-4 text-end">
-                    <button class="clinical-button secondary" onclick="downloadCorrelationResults()">
-                        <i class="bi bi-download"></i> 导出相关性分析结果
-                        </button>
-                    </div>
-                </div>
-            `;
-        
-        container.innerHTML = resultHTML;
-        
-        // 如果包含热力图可视化，绘制热力图
-        if (visualizeOptions.includes('heatmap')) {
-            setTimeout(() => {
-                renderCorrelationHeatmap(variables, correlationMatrix);
-            }, 50);
-        }
-        
-        // 如果包含散点图可视化，绘制散点图
-        if (visualizeOptions.includes('scatter') && variables.length >= 2) {
-            setTimeout(() => {
-                renderCorrelationScatterplot(variables[0], variables[1], correlationMatrix[0][1]);
-            }, 50);
-        }
-    }
-    
-    // 绘制相关性热力图
-    function renderCorrelationHeatmap(variables, correlationMatrix) {
-        try {
-            if (typeof Chart === 'undefined') {
-                console.error('Chart.js未加载');
-                return;
-            }
-            
-            const ctx = document.getElementById('correlation_heatmap').getContext('2d');
-            
-            // 准备热力图数据
-            const data = [];
-            for (let i = 0; i < variables.length; i++) {
-                for (let j = 0; j < variables.length; j++) {
-                    data.push({
-                        x: j,
-                        y: i,
-                        v: correlationMatrix[i][j]
-                    });
-                }
-            }
-            
-            // 创建热力图
-            new Chart(ctx, {
-                type: 'scatter',
-                data: {
-                    datasets: [{
-                        label: '相关系数',
-                        data: data,
-                        backgroundColor: function(context) {
-                            const value = context.dataset.data[context.dataIndex].v;
-                            
-                            // 根据相关系数值生成颜色
-                            if (value >= 0) {
-                                // 正相关: 蓝色色谱
-                                const intensity = Math.sqrt(value); // 使用平方根使中等相关性更明显
-                                return `rgba(0, 123, 255, ${intensity})`;
-                            } else {
-                                // 负相关: 红色色谱
-                                const intensity = Math.sqrt(Math.abs(value));
-                                return `rgba(255, 0, 0, ${intensity})`;
-                            }
-                        },
-                        pointRadius: function(context) {
-                            // 对角线上的点设为大一点，其他根据相关系数绝对值设置大小
-                            const x = context.dataset.data[context.dataIndex].x;
-                            const y = context.dataset.data[context.dataIndex].y;
-                            
-                            if (x === y) return 10;
-                            
-                            const value = Math.abs(context.dataset.data[context.dataIndex].v);
-                            return 6 + value * 14; // 范围：6-20
-                        },
-                        pointHoverRadius: function(context) {
-                            return context.raw.r + 2;
-                        }
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        x: {
-                            type: 'category',
-                            position: 'top',
-                            labels: variables,
-                            ticks: {
-                                autoSkip: false,
-                                maxRotation: 45,
-                                minRotation: 45
-                            }
-                        },
-                        y: {
-                            type: 'category',
-                            position: 'left',
-                            labels: variables,
-                            reverse: true
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                title: function(context) {
-                                    const x = context[0].dataset.data[context[0].dataIndex].x;
-                                    const y = context[0].dataset.data[context[0].dataIndex].y;
-                                    return `${variables[y]} vs ${variables[x]}`;
-                                },
-                                label: function(context) {
-                                    const value = context.dataset.data[context.dataIndex].v;
-                                    return `相关系数: ${value.toFixed(3)}`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-            
-            // 添加热力图图例
-            const legendContainer = document.createElement('div');
-            legendContainer.className = 'text-center mt-3';
-            legendContainer.innerHTML = `
-                <div class="d-flex justify-content-center">
-                    <div class="d-flex flex-column me-4">
-                        <div style="background: linear-gradient(to right, rgba(255,255,255,0), rgba(255,0,0,1)); width: 100px; height: 20px;"></div>
-                        <div class="text-center" style="font-size: 0.8em;">负相关</div>
-                    </div>
-                    <div class="d-flex flex-column ms-4">
-                        <div style="background: linear-gradient(to right, rgba(255,255,255,0), rgba(0,123,255,1)); width: 100px; height: 20px;"></div>
-                        <div class="text-center" style="font-size: 0.8em;">正相关</div>
-                    </div>
-                </div>
-            `;
-            document.getElementById('correlation_heatmap').parentNode.appendChild(legendContainer);
-        } catch (error) {
-            console.error('绘制相关性热力图错误:', error);
-            document.getElementById('correlation_heatmap').innerHTML = `
-                <div class="alert alert-danger">
-                    图表渲染错误: ${error.message}
-                </div>
-            `;
-        }
-    }
-    
-    // 绘制相关性散点图
-    function renderCorrelationScatterplot(xVar, yVar, correlationCoef) {
-        try {
-            if (typeof Chart === 'undefined') {
-                console.error('Chart.js未加载');
-                return;
-            }
-            
-            const ctx = document.getElementById('correlation_scatter').getContext('2d');
-            
-            // 生成模拟数据点
-            const sampleSize = 50;
-            const xData = [];
-            const yData = [];
-            
-            // 生成相关的随机数据
-            // 使用正态分布生成x值
-            for (let i = 0; i < sampleSize; i++) {
-                xData.push(generateNormalData(1, 50, 10)[0]);
-            }
-            
-            // 根据相关系数生成对应的y值
-            for (let i = 0; i < sampleSize; i++) {
-                // 计算对应的y值，保持指定的相关系数
-                const noise = generateNormalData(1, 0, 10)[0]; // 随机噪声
-                const yValue = 50 + (correlationCoef * (xData[i] - 50)) + noise * Math.sqrt(1 - Math.pow(correlationCoef, 2));
-                yData.push(yValue);
-            }
-            
-            // 组合为数据点
-            const scatterData = xData.map((x, i) => ({
-                x: x,
-                y: yData[i]
-            }));
-            
-            // 创建散点图
-            new Chart(ctx, {
-                type: 'scatter',
-                data: {
-                    datasets: [{
-                        label: `${xVar} vs ${yVar}`,
-                        data: scatterData,
-                        backgroundColor: 'rgba(54, 162, 235, 0.6)',
-                        borderColor: 'rgba(54, 162, 235, 1)',
-                        borderWidth: 1,
-                        pointRadius: 5,
-                        pointHoverRadius: 7
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        x: {
-                            title: {
-                                display: true,
-                                text: xVar
-                            }
-                        },
-                        y: {
-                            title: {
-                                display: true,
-                                text: yVar
-                            }
-                        }
-                    },
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: `散点图: ${xVar} vs ${yVar} (r = ${correlationCoef.toFixed(3)})`
-                        },
-                        legend: {
-                            display: false
-                        },
-                        annotation: {
-                            annotations: {
-                                line1: {
-                                    type: 'line',
-                                    mode: 'linear',
-                                    scaleID: 'y',
-                                    borderColor: 'rgba(255, 99, 132, 0.5)',
-                                    borderWidth: 2,
-                                    value: function(context) {
-                                        // 计算回归线
-                                        const meanX = xData.reduce((a, b) => a + b, 0) / xData.length;
-                                        const meanY = yData.reduce((a, b) => a + b, 0) / yData.length;
-                                        const slope = correlationCoef * (calculateStdDev(yData) / calculateStdDev(xData));
-                                        const intercept = meanY - slope * meanX;
-                                        
-                                        return function(value) {
-                                            return slope * value + intercept;
-                                        };
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-            
-            // 添加相关系数注释
-            const annotation = document.createElement('div');
-            annotation.className = 'text-center mt-2';
-            annotation.innerHTML = `
-                <div class="alert ${Math.abs(correlationCoef) > 0.5 ? 'alert-info' : 'alert-secondary'} py-2">
-                    ${getCorrelationTypeName('pearson')}相关系数: r = ${correlationCoef.toFixed(3)}
-                    (${getCorrelationStrength(correlationCoef)})
-                </div>
-            `;
-            document.getElementById('correlation_scatter').parentNode.appendChild(annotation);
-        } catch (error) {
-            console.error('绘制相关性散点图错误:', error);
-            document.getElementById('correlation_scatter').innerHTML = `
-                <div class="alert alert-danger">
-                    图表渲染错误: ${error.message}
-                </div>
-            `;
-        }
-    }
-    
-    // 获取相关系数类型的中文名称
-    function getCorrelationTypeName(corrType) {
-        const corrNames = {
-            'pearson': 'Pearson',
-            'spearman': 'Spearman',
-            'kendall': 'Kendall',
-            'point_biserial': '点二列'
-        };
-        
-        return corrNames[corrType] || corrType;
-    }
-    
-    // 获取相关性强度描述
-    function getCorrelationStrength(coef) {
-        const absCoef = Math.abs(coef);
-        if (absCoef >= 0.8) return coef > 0 ? '强正相关' : '强负相关';
-        if (absCoef >= 0.5) return coef > 0 ? '中等正相关' : '中等负相关';
-        if (absCoef >= 0.3) return coef > 0 ? '弱正相关' : '弱负相关';
-        return '无明显相关';
-    }
-    
-    // 下载相关性分析结果
-    function downloadCorrelationResults() {
-        alert('相关性分析结果下载功能正在开发中，敬请期待');
-    }
-    
-    // 计算标准差
-    function calculateStdDev(data) {
-        const n = data.length;
-        if (n <= 1) return 0;
-        
-        const mean = data.reduce((a, b) => a + b, 0) / n;
-        const variance = data.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (n - 1);
-        return Math.sqrt(variance);
-    }
-    
-    // 生成正态分布的随机数据
-    function generateNormalData(count, mean = 0, stdDev = 1) {
-        const result = [];
-        for (let i = 0; i < count; i++) {
-            // 使用Box-Muller变换生成正态分布随机数
-            const u1 = Math.random();
-            const u2 = Math.random();
-            const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
-            
-            // 缩放到指定的均值和标准差
-            const value = z0 * stdDev + mean;
-            result.push(value);
-        }
-        return result;
-    }
-    
-    // 处理生存分析表单提交
-    document.getElementById('survival_form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        // 获取选择的数据集和变量
-        const dataset = document.getElementById('survival_dataset').value;
-        const timeVar = document.getElementById('survival_time_var').value;
-        const eventVar = document.getElementById('survival_event_var').value;
-        const groupVar = document.getElementById('survival_group_var').value;
-        const analysisType = document.getElementById('survival_type').value;
-        
-        // 验证必填字段
-        if (!dataset || !timeVar || !eventVar) {
-            alert('请选择数据集、时间变量和事件变量');
-            return;
-        }
-        
-        // 显示加载状态
-        const resultContainer = document.getElementById('survival_results');
-        resultContainer.innerHTML = `
-            <div class="text-center my-5">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">加载中...</span>
-                </div>
-                <p class="mt-2">正在进行生存分析，请稍候...</p>
-            </div>
-        `;
-        
-        // 模拟分析延迟
-        setTimeout(() => {
-            // 在实际应用中，这里应该调用后端API进行分析
-            showSurvivalResults(
-                dataset,
-                timeVar,
-                eventVar,
-                groupVar,
-                analysisType,
-                resultContainer
-            );
-        }, 1500);
-    });
-    
-    // 处理生存分析表单重置
-    document.getElementById('survival_form').addEventListener('reset', function() {
-        document.getElementById('survival_results').innerHTML = '';
-    });
-    
-    // 显示生存分析结果
-    function showSurvivalResults(dataset, timeVar, eventVar, groupVar, analysisType, container) {
-        // 这里是模拟结果，实际中应通过API获取
-        
-        let resultHTML = `
-            <div class="result-content">
-                <h4>生存分析结果</h4>
-                
-                <div class="analysis-parameters mb-4">
-                    <h5>分析参数</h5>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <ul class="list-unstyled">
-                                <li><strong>数据集:</strong> 数据集 #${dataset}</li>
-                                <li><strong>时间变量:</strong> ${timeVar}</li>
-                                <li><strong>事件变量:</strong> ${eventVar}</li>
-                            </ul>
-                        </div>
-                        <div class="col-md-6">
-                            <ul class="list-unstyled">
-                                <li><strong>分组变量:</strong> ${groupVar || '无'}</li>
-                                <li><strong>分析类型:</strong> ${analysisType === 'kaplan_meier' ? 'Kaplan-Meier生存分析' : 'Cox比例风险回归'}</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-        `;
-        
-        // 根据分析类型生成不同的结果
-        if (analysisType === 'kaplan_meier') {
-            // 生成Kaplan-Meier生存分析结果
-            
-            // 模拟生存数据
-            const survivalTimes = [0, 6, 12, 18, 24, 30, 36];
-            const survivalRates = [1.0, 0.95, 0.85, 0.75, 0.68, 0.62, 0.58];
-            const atRisk = [100, 95, 85, 75, 68, 62, 58];
-            const events = [0, 5, 10, 10, 7, 6, 4];
-            const censored = [0, 0, 0, 0, 0, 0, 0];
-            
-            resultHTML += `
-                <div class="survival-results">
-                    <h5>Kaplan-Meier生存分析结果</h5>
-                    
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-hover mt-3">
-                            <thead>
-                                <tr>
-                                    <th>时间 (月)</th>
-                                    <th>风险人数</th>
-                                    <th>事件数</th>
-                                    <th>删失数</th>
-                                    <th>生存率</th>
-                                    <th>标准误</th>
-                                    <th>95% CI下限</th>
-                                    <th>95% CI上限</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-            `;
-            
-            // 生成生存表数据
-            survivalTimes.forEach((time, i) => {
-                const se = Math.sqrt(survivalRates[i] * (1 - survivalRates[i]) / atRisk[i]);
-                const ci_lower = Math.max(0, survivalRates[i] - 1.96 * se);
-                const ci_upper = Math.min(1, survivalRates[i] + 1.96 * se);
-                
-                resultHTML += `
-                    <tr>
-                        <td>${time}</td>
-                        <td>${atRisk[i]}</td>
-                        <td>${events[i]}</td>
-                        <td>${censored[i]}</td>
-                        <td>${survivalRates[i].toFixed(3)}</td>
-                        <td>${se.toFixed(3)}</td>
-                        <td>${ci_lower.toFixed(3)}</td>
-                        <td>${ci_upper.toFixed(3)}</td>
-                    </tr>
-                `;
-            });
-            
-            resultHTML += `
-                            </tbody>
-                        </table>
-                    </div>
-            `;
-            
-            // 如果有分组变量，添加组间比较结果
-            if (groupVar) {
-                // 模拟Log-rank检验结果
-                const logRankChiSq = 4.8;
-                const logRankP = 0.028;
-                const significant = logRankP < 0.05;
-                
-                resultHTML += `
-                    <div class="log-rank-test mt-4">
-                        <h5>组间比较 (Log-rank检验)</h5>
-                        <div class="table-responsive">
-                            <table class="table table-bordered table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>组别</th>
-                                        <th>样本数</th>
-                                        <th>观察事件数</th>
-                                        <th>期望事件数</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>${groupVar} = 0</td>
-                                        <td>50</td>
-                                        <td>25</td>
-                                        <td>20.5</td>
-                                    </tr>
-                                    <tr>
-                                        <td>${groupVar} = 1</td>
-                                        <td>50</td>
-                                        <td>17</td>
-                                        <td>21.5</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        
-                        <div class="test-result mt-3">
-                            <div class="alert ${significant ? 'alert-info' : 'alert-secondary'}">
-                                <p><strong>Log-rank检验结果:</strong> χ² = ${logRankChiSq.toFixed(2)}, p = ${logRankP.toFixed(3)}${significant ? ' <span class="badge bg-info">显著</span>' : ''}</p>
-                                <p>
-                                    ${significant ? 
-                                        `检验结果表明不同${groupVar}组别的生存曲线存在<strong>统计学显著差异</strong> (p < 0.05)。` : 
-                                        `检验结果表明不同${groupVar}组别的生存曲线无统计学显著差异 (p > 0.05)。`
-                                    }
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-            
-            // 添加生存曲线
-            resultHTML += `
-                <div class="survival-curves mt-4">
-                    <h5>Kaplan-Meier生存曲线</h5>
-                    <div class="chart-container" id="survival_curve" style="height:400px;"></div>
-                </div>
-            `;
-            
-        } else if (analysisType === 'cox_regression') {
-            // 生成Cox回归分析结果
-            
-            // 模拟Cox回归系数
-            const covariates = ['年龄', '性别', '疾病分期', '治疗方式'];
-            const coefs = [0.034, -0.582, 0.876, -0.495];
-            const hrs = coefs.map(c => Math.exp(c));
-            const se = [0.012, 0.257, 0.301, 0.245];
-            const zScores = coefs.map((c, i) => c / se[i]);
-            const pValues = zScores.map(z => {
-                // 计算近似p值
-                const absZ = Math.abs(z);
-                return 2 * (1 - Math.min(0.999, (1 + 0.196854 * absZ + 0.115194 * Math.pow(absZ, 2) + 0.000344 * Math.pow(absZ, 3) + 0.019527 * Math.pow(absZ, 4))));
-            });
-            
-            resultHTML += `
-                <div class="cox-regression-results">
-                    <h5>Cox比例风险回归分析结果</h5>
-                    
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-hover mt-3">
-                            <thead>
-                                <tr>
-                                    <th>协变量</th>
-                                    <th>系数 (β)</th>
-                                    <th>标准误 (SE)</th>
-                                    <th>风险比 (HR)</th>
-                                    <th>95% CI下限</th>
-                                    <th>95% CI上限</th>
-                                    <th>z值</th>
-                                    <th>p值</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-            `;
-            
-            // 生成Cox回归表格数据
-            covariates.forEach((cov, i) => {
-                const hr = hrs[i];
-                const ci_lower = Math.exp(coefs[i] - 1.96 * se[i]);
-                const ci_upper = Math.exp(coefs[i] + 1.96 * se[i]);
-                const significant = pValues[i] < 0.05;
-                
-                resultHTML += `
-                    <tr${significant ? ' class="table-info"' : ''}>
-                        <td>${cov}</td>
-                        <td>${coefs[i].toFixed(3)}</td>
-                        <td>${se[i].toFixed(3)}</td>
-                        <td>${hr.toFixed(3)}${significant ? ' *' : ''}</td>
-                        <td>${ci_lower.toFixed(3)}</td>
-                        <td>${ci_upper.toFixed(3)}</td>
-                        <td>${zScores[i].toFixed(2)}</td>
-                        <td>${pValues[i].toFixed(4)}${significant ? ' *' : ''}</td>
-                    </tr>
-                `;
-            });
-            
-            resultHTML += `
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    <div class="result-interpretation mt-3">
-                        <p><small>* 表示在α=0.05水平上统计显著</small></p>
-                        <p>
-                            <strong>风险比(HR)解释:</strong><br>
-                            HR > 1 表示该因素增加风险（降低生存率）<br>
-                            HR < 1 表示该因素降低风险（提高生存率）<br>
-                            HR = 1 表示该因素对风险无显著影响
-                        </p>
-                    </div>
-                    
-                    <div class="model-statistics mt-4">
-                        <h5>模型统计量</h5>
-                        <div class="table-responsive">
-                            <table class="table table-bordered">
-                                <tbody>
-                                    <tr>
-                                        <th>对数似然比</th>
-                                        <td>-156.78</td>
-                                        <th>赤池信息准则(AIC)</th>
-                                        <td>321.56</td>
-                                    </tr>
-                                    <tr>
-                                        <th>一致性指数(C)</th>
-                                        <td>0.73</td>
-                                        <th>R²</th>
-                                        <td>0.28</td>
-                                    </tr>
-                                    <tr>
-                                        <th>总样本量</th>
-                                        <td>100</td>
-                                        <th>事件数</th>
-                                        <td>42</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                    
-                    <div class="cox-forest-plot mt-4">
-                        <h5>Cox回归森林图</h5>
-                        <div class="chart-container" id="cox_forest_plot" style="height:300px;"></div>
-                    </div>
-                `;
-            
-        }
-        
-        // 添加下载按钮
-        resultHTML += `
-                <div class="mt-4 text-end">
-                    <button class="clinical-button secondary" onclick="downloadSurvivalResults()">
-                        <i class="bi bi-download"></i> 导出生存分析结果
+                <div class="mt-3 text-end">
+                    <button class="clinical-button secondary" onclick="exportResults()">
+                        <i class="bi bi-download"></i> 导出结果
                     </button>
                 </div>
             </div>
-        `;
-        
-        container.innerHTML = resultHTML;
-        
-        // 根据分析类型渲染不同的图表
-        setTimeout(() => {
-            if (analysisType === 'kaplan_meier') {
-                renderSurvivalCurve(groupVar);
-            } else if (analysisType === 'cox_regression') {
-                renderCoxForestPlot();
-            }
-        }, 50);
-    }
-    
-    // 渲染生存曲线
-    function renderSurvivalCurve(groupVar) {
-        try {
-            if (typeof Chart === 'undefined') {
-                console.error('Chart.js未加载');
-                return;
-            }
-            
-            const ctx = document.getElementById('survival_curve').getContext('2d');
-            
-            // 生成模拟生存数据点
-            const timePoints = [0, 6, 12, 18, 24, 30, 36, 42, 48, 54, 60];
-            
-            let datasets = [];
-            
-            if (groupVar) {
-                // 如果有分组变量，生成两条生存曲线
-                const survivalRatesGroup1 = [1.0, 0.95, 0.88, 0.81, 0.74, 0.68, 0.64, 0.60, 0.57, 0.54, 0.52];
-                const survivalRatesGroup2 = [1.0, 0.92, 0.83, 0.72, 0.61, 0.53, 0.48, 0.44, 0.41, 0.39, 0.38];
-                
-                datasets = [
-                    {
-                        label: `${groupVar} = 0`,
-                        data: survivalRatesGroup1.map((rate, i) => ({
-                            x: timePoints[i],
-                            y: rate
-                        })),
-                        borderColor: 'rgba(54, 162, 235, 1)',
-                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                        steppedLine: 'after',
-                        pointRadius: 4,
-                        tension: 0
-                    },
-                    {
-                        label: `${groupVar} = 1`,
-                        data: survivalRatesGroup2.map((rate, i) => ({
-                            x: timePoints[i],
-                            y: rate
-                        })),
-                        borderColor: 'rgba(255, 99, 132, 1)',
-                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                        steppedLine: 'after',
-                        pointRadius: 4,
-                        tension: 0
-                    }
-                ];
-            } else {
-                // 如果没有分组变量，只生成一条生存曲线
-                const survivalRates = [1.0, 0.94, 0.86, 0.78, 0.70, 0.63, 0.58, 0.54, 0.51, 0.48, 0.46];
-                
-                datasets = [
-                    {
-                        label: '总体生存率',
-                        data: survivalRates.map((rate, i) => ({
-                            x: timePoints[i],
-                            y: rate
-                        })),
-                        borderColor: 'rgba(54, 162, 235, 1)',
-                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                        steppedLine: 'after',
-                        pointRadius: 4,
-                        tension: 0
-                    }
-                ];
-            }
-            
-            new Chart(ctx, {
-                type: 'line',
-                data: {
-                    datasets: datasets
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        x: {
-                            type: 'linear',
-                            position: 'bottom',
-                            title: {
-                                display: true,
-                                text: '时间 (月)'
-                            },
-                            min: 0
-                        },
-                        y: {
-                            min: 0,
-                            max: 1,
-                            title: {
-                                display: true,
-                                text: '生存概率'
-                            }
-                        }
-                    },
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'Kaplan-Meier生存曲线'
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `${context.dataset.label}: ${(context.parsed.y * 100).toFixed(1)}%`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-            
-            // 添加图例说明
-            const legendInfo = document.createElement('div');
-            legendInfo.className = 'text-center mt-2';
-            legendInfo.innerHTML = `
-                <div class="alert alert-light py-2">
-                    <small>
-                        生存曲线显示了随时间推移的生存概率。纵轴表示生存概率，横轴表示随访时间（月）。
-                        ${groupVar ? '不同颜色的曲线代表不同组别的生存情况。' : ''}
-                    </small>
-                </div>
             `;
-            document.getElementById('survival_curve').parentNode.appendChild(legendInfo);
             
-        } catch (error) {
-            console.error('绘制生存曲线错误:', error);
-            document.getElementById('survival_curve').innerHTML = `
-                <div class="alert alert-danger">
-                    生存曲线渲染错误: ${error.message}
-                </div>
-            `;
-        }
-    }
-    
-    // 渲染Cox回归森林图
-    function renderCoxForestPlot() {
-        try {
-            if (typeof Chart === 'undefined') {
-                console.error('Chart.js未加载');
-                return;
-            }
+            resultPreview.innerHTML = tableHTML;
             
-            const ctx = document.getElementById('cox_forest_plot').getContext('2d');
-            
-            // 模拟Cox回归数据
-            const covariates = ['年龄', '性别', '疾病分期', '治疗方式'];
-            const hrs = [1.035, 0.559, 2.401, 0.610];
-            const lowerCIs = [1.010, 0.338, 1.331, 0.377];
-            const upperCIs = [1.060, 0.925, 4.334, 0.986];
-            
-            // 创建森林图
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: covariates,
-                    datasets: [{
-                        label: '风险比(HR)',
-                        data: hrs,
-                        backgroundColor: 'rgba(0, 0, 0, 0)',
-                        borderColor: 'rgba(0, 0, 0, 0)'
-                    }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        x: {
-                            type: 'logarithmic',
-                            position: 'bottom',
-                            title: {
-                                display: true,
-                                text: '风险比(HR) - 对数尺度'
+            // 绘制实际数据的图表
+            try {
+                if (typeof Chart !== 'undefined' && chartLabels.length > 0) {
+                    const canvas = document.getElementById('resultChart');
+                    if (canvas) {
+                        const ctx = canvas.getContext('2d');
+                        new Chart(ctx, {
+                            type: 'bar',
+                            data: {
+                                labels: chartLabels,
+                                datasets: [{
+                                    label: '均值',
+                                    data: chartData,
+                                    backgroundColor: chartLabels.map((_, i) => {
+                                        const colors = [
+                                            'rgba(54, 162, 235, 0.5)',
+                                            'rgba(75, 192, 192, 0.5)',
+                                            'rgba(255, 159, 64, 0.5)',
+                                            'rgba(153, 102, 255, 0.5)',
+                                            'rgba(255, 99, 132, 0.5)'
+                                        ];
+                                        return colors[i % colors.length];
+                                    }),
+                                    borderColor: chartLabels.map((_, i) => {
+                                        const colors = [
+                                            'rgba(54, 162, 235, 1)',
+                                            'rgba(75, 192, 192, 1)',
+                                            'rgba(255, 159, 64, 1)',
+                                            'rgba(153, 102, 255, 1)',
+                                            'rgba(255, 99, 132, 1)'
+                                        ];
+                                        return colors[i % colors.length];
+                                    }),
+                                    borderWidth: 1
+                                }]
                             },
-                            min: 0.1,
-                            max: 10,
-                            grid: {
-                                display: true
-                            },
-                            ticks: {
-                                callback: function(value) {
-                                    return value.toFixed(1);
-                                }
-                            }
-                        }
-                    },
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'Cox回归分析 - 风险比森林图'
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const i = context.dataIndex;
-                                    return `HR: ${hrs[i].toFixed(3)} (95% CI: ${lowerCIs[i].toFixed(3)}-${upperCIs[i].toFixed(3)})`;
-                                }
-                            }
-                        },
-                        legend: {
-                            display: false
-                        },
-                        annotation: {
-                            annotations: {
-                                line1: {
-                                    type: 'line',
-                                    xMin: 1,
-                                    xMax: 1,
-                                    borderColor: 'rgba(0, 0, 0, 0.5)',
-                                    borderWidth: 2,
-                                    borderDash: [6, 6],
-                                    label: {
-                                        content: 'HR = 1',
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    title: {
                                         display: true,
-                                        position: 'top'
+                                        text: '变量均值比较'
+                                    },
+                                    legend: {
+                                        display: false
                                     }
                                 }
                             }
-                        }
+                        });
                     }
-                },
-                plugins: [{
-                    id: 'forestplot',
-                    beforeDraw: function(chart) {
-                        const ctx = chart.ctx;
-                        const xAxis = chart.scales.x;
-                        const yAxis = chart.scales.y;
-                        
-                        // 绘制水平线段
-                        ctx.save();
-                        ctx.beginPath();
-                        
-                        for (let i = 0; i < covariates.length; i++) {
-                            const y = yAxis.getPixelForValue(i);
-                            
-                            // 转换HR和CI为像素坐标
-                            const xHR = xAxis.getPixelForValue(hrs[i]);
-                            const xLower = xAxis.getPixelForValue(lowerCIs[i]);
-                            const xUpper = xAxis.getPixelForValue(upperCIs[i]);
-                            
-                            // 绘制CI线
-                            ctx.moveTo(xLower, y);
-                            ctx.lineTo(xUpper, y);
-                            ctx.lineWidth = 2;
-                            ctx.strokeStyle = hrs[i] > 1 ? 'rgba(255, 99, 132, 0.8)' : 'rgba(54, 162, 235, 0.8)';
-                            ctx.stroke();
-                            
-                            // 绘制HR点
-                            ctx.beginPath();
-                            ctx.arc(xHR, y, 6, 0, 2 * Math.PI);
-                            ctx.fillStyle = hrs[i] > 1 ? 'rgba(255, 99, 132, 1)' : 'rgba(54, 162, 235, 1)';
-                            ctx.fill();
-                            ctx.strokeStyle = '#000';
-                            ctx.lineWidth = 1;
-                            ctx.stroke();
-                            
-                            // 添加HR值文本
-                            ctx.fillStyle = '#000';
-                            ctx.textAlign = 'left';
-                            ctx.fillText(hrs[i].toFixed(2), xUpper + 5, y + 4);
-                        }
-                        
-                        ctx.restore();
-                    }
-                }]
-            });
-            
-            // 添加图例说明
-            const legendInfo = document.createElement('div');
-            legendInfo.className = 'text-center mt-2';
-            legendInfo.innerHTML = `
-                <div class="alert alert-light py-2">
-                    <small>
-                        森林图显示了各因素的风险比(HR)及其95%置信区间。HR > 1表示风险增加，HR < 1表示风险降低。
-                        垂直虚线(HR = 1)表示无影响的参考线。当置信区间不跨越参考线时，该因素的影响具有统计学显著性。
-                    </small>
-                </div>
-            `;
-            document.getElementById('cox_forest_plot').parentNode.appendChild(legendInfo);
-            
-        } catch (error) {
-            console.error('绘制Cox回归森林图错误:', error);
-            document.getElementById('cox_forest_plot').innerHTML = `
-                <div class="alert alert-danger">
-                    森林图渲染错误: ${error.message}
+                }
+            } catch (error) {
+                console.error('绘制图表失败:', error);
+            }
+        } else {
+            resultPreview.innerHTML = `
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> 没有找到符合条件的数据
                 </div>
             `;
         }
-    }
-    
-    // 下载生存分析结果
-    function downloadSurvivalResults() {
-        alert('生存分析结果下载功能正在开发中，敬请期待');
-    }
-    
-    // 处理风险评估表单提交
-    document.getElementById('riskForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        // 获取选择的数据集和变量
-        const dataset = document.getElementById('dataset-select-risk').value;
-        const modelType = document.querySelector('select[name="model_type"]').value;
-        const targetVar = document.querySelector('select[name="target_variable"]').value;
-        
-        // 验证必填字段
-        if (!dataset || !targetVar) {
-            alert('请选择数据集和目标变量');
-            return;
-        }
-        
-        // 显示加载状态
-        const resultContainer = document.querySelector('.result-preview');
-        resultContainer.innerHTML = `
-            <div class="text-center my-5">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">加载中...</span>
-                </div>
-                <p class="mt-2">正在构建风险评估模型，请稍候...</p>
+    })
+    .catch(error => {
+        console.error('分析请求失败:', error);
+        resultPreview.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle"></i> 分析失败: ${error.message}
             </div>
         `;
-        
-        // 模拟分析延迟
-        setTimeout(() => {
-            // 在实际应用中，这里应该调用后端API进行分析
-            showRiskAssessmentResults(
-                dataset,
-                modelType,
-                targetVar,
-                resultContainer
-            );
-        }, 1500);
     });
+}
+
+// 获取统计量的显示名称
+function getStatDisplayName(stat) {
+    const statNames = {
+        'mean': '均值',
+        'median': '中位数',
+        'sd': '标准差',
+        'var': '方差',
+        'min': '最小值',
+        'max': '最大值',
+        'q1': '第一四分位数',
+        'q3': '第三四分位数',
+        'skewness': '偏度',
+        'kurtosis': '峰度'
+    };
+    return statNames[stat] || stat;
+}
+
+// 格式化统计值
+function formatStatValue(value) {
+    if (value === null || value === undefined) {
+        return 'N/A';
+    }
     
-    // 处理风险评估表单重置
-    document.getElementById('resetRiskBtn').addEventListener('click', function() {
-        document.getElementById('riskForm').reset();
-    });
+    if (typeof value === 'number') {
+        // 检查是否为整数
+        if (Number.isInteger(value)) {
+            return value.toString();
+        }
+        
+        // 如果是小数，保留两位小数
+        return value.toFixed(2);
+    }
     
-    // 显示风险评估结果
-    function showRiskAssessmentResults(dataset, modelType, targetVar, container) {
-        // 这里是模拟结果，实际中应通过API获取
+    return value;
+}
+
+// 导出结果
+function exportResults() {
+    alert('导出功能开发中，即将支持Excel、CSV和PDF格式导出');
+}
+
+// 加载数据集变量
+function loadDatasetVariables(datasetId, toolType) {
+    let variablesContainer;
+    
+    // 根据工具类型选择不同的变量容器
+    switch(toolType) {
+        case 'descriptive':
+            variablesContainer = document.querySelector('#descriptive-panel .variables-container .variables-list');
+            break;
+        case 'hypothesis':
+            variablesContainer = document.querySelector('#hypothesis-panel .variables-container .variables-list');
+            break;
+        case 'correlation':
+            variablesContainer = document.querySelector('#correlation-panel .variables-container .variables-list');
+            break;
+        default:
+            variablesContainer = document.querySelector('.variables-container .variables-list');
+    }
+    
+    if (!variablesContainer) {
+        console.error('找不到变量容器:', toolType);
+        return;
+    }
+    
+    // 显示加载状态
+    variablesContainer.innerHTML = `
+        <div class="loading-indicator">
+            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                <span class="visually-hidden">加载中...</span>
+            </div>
+            <span class="ms-2">正在加载变量...</span>
+        </div>
+    `;
+    
+    // 调用API获取变量
+    fetch(`/api/datasets/${datasetId}/variables`, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('获取变量失败: ' + response.status);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (!data.success) {
+            throw new Error(data.message || '获取变量失败');
+        }
         
-        let resultHTML = `
-            <div class="result-content">
-                <h4>风险评估模型结果</h4>
-                
-                <div class="analysis-parameters mb-4">
-                    <h5>模型参数</h5>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <ul class="list-unstyled">
-                                <li><strong>数据集:</strong> 数据集 #${dataset}</li>
-                                <li><strong>模型类型:</strong> ${getModelTypeName(modelType)}</li>
-                            </ul>
-                        </div>
-                        <div class="col-md-6">
-                            <ul class="list-unstyled">
-                                <li><strong>目标变量:</strong> ${targetVar}</li>
-                                <li><strong>样本量:</strong> 100 (训练集: 80, 测试集: 20)</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="model-coefficients">
-                    <h5>模型系数</h5>
-                    
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-hover mt-3">
-                            <thead>
-                                <tr>
-                                    <th>预测变量</th>
-                                    <th>系数 (β)</th>
-                                    <th>标准误</th>
-                                    <th>Odds比(OR)</th>
-                                    <th>95% CI下限</th>
-                                    <th>95% CI上限</th>
-                                    <th>p值</th>
-                                    <th>显著性</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-        `;
+        // 处理变量数据
+        const variables = data.variables || [];
+        let continuousVars = [];
+        let categoricalVars = [];
         
-        // 模拟模型系数
-        const predictors = ['年龄', '性别', 'BMI', '吸烟史', '既往病史'];
-        const coefs = [0.047, -0.732, 0.089, 1.253, 0.876];
-        const stderrs = [0.012, 0.324, 0.054, 0.381, 0.402];
-        const pValues = [0.001, 0.024, 0.103, 0.001, 0.029];
-        const alpha = 0.05;
-        
-        // 添加模型系数
-        predictors.forEach((pred, i) => {
-            const odds = Math.exp(coefs[i]);
-            const ci_lower = Math.exp(coefs[i] - 1.96 * stderrs[i]);
-            const ci_upper = Math.exp(coefs[i] + 1.96 * stderrs[i]);
-            const significant = pValues[i] < alpha;
-            
-            resultHTML += `
-                <tr class="${significant ? 'table-info' : ''}">
-                    <td>${pred}</td>
-                    <td>${coefs[i].toFixed(3)}</td>
-                    <td>${stderrs[i].toFixed(3)}</td>
-                    <td>${odds.toFixed(3)}</td>
-                    <td>${ci_lower.toFixed(3)}</td>
-                    <td>${ci_upper.toFixed(3)}</td>
-                    <td>${pValues[i].toFixed(4)}${significant ? ' *' : ''}</td>
-                    <td>${significant ? '<span class="badge bg-success">是</span>' : '<span class="badge bg-secondary">否</span>'}</td>
-                </tr>
-            `;
+        // 分类变量
+        variables.forEach(variable => {
+            if (variable.type === 'continuous' || variable.type === 'number' || variable.type === 'float' || variable.type === 'integer') {
+                continuousVars.push(variable);
+            } else {
+                categoricalVars.push(variable);
+            }
         });
         
-        resultHTML += `
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    <div class="result-interpretation mt-3">
-                        <p><small>* 表示在α=0.05水平上统计显著</small></p>
-                        <p>
-                            <strong>Odds比(OR)解释:</strong><br>
-                            OR > 1 表示该因素增加风险（正向关联）<br>
-                            OR < 1 表示该因素降低风险（负向关联）<br>
-                            OR = 1 表示该因素对风险无显著影响
-                        </p>
-                    </div>
-                </div>
-                
-                <div class="model-fit mt-4">
-                    <h5>模型拟合优度</h5>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="table-responsive">
-                                <table class="table table-bordered">
-                                    <tbody>
-                                        <tr>
-                                            <th>AUC</th>
-                                            <td>0.83</td>
-                                            <th>准确率</th>
-                                            <td>0.85</td>
-                                        </tr>
-                                        <tr>
-                                            <th>敏感性</th>
-                                            <td>0.82</td>
-                                            <th>特异性</th>
-                                            <td>0.87</td>
-                                        </tr>
-                                        <tr>
-                                            <th>对数似然比</th>
-                                            <td>-43.56</td>
-                                            <th>AIC</th>
-                                            <td>97.12</td>
-                                        </tr>
-                                        <tr>
-                                            <th>BIC</th>
-                                            <td>112.35</td>
-                                            <th></th>
-                                            <td></td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="confusion-matrix">
-                                <h6>混淆矩阵</h6>
-                                <div class="table-responsive">
-                                    <table class="table table-bordered table-sm">
-                                        <thead>
-                                            <tr>
-                                                <th></th>
-                                                <th>预测阳性</th>
-                                                <th>预测阴性</th>
-                                                <th>总计</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr>
-                                                <th>实际阳性</th>
-                                                <td class="table-success">41 (TP)</td>
-                                                <td class="table-danger">9 (FN)</td>
-                                                <td>50</td>
-                                            </tr>
-                                            <tr>
-                                                <th>实际阴性</th>
-                                                <td class="table-danger">6 (FP)</td>
-                                                <td class="table-success">44 (TN)</td>
-                                                <td>50</td>
-                                            </tr>
-                                            <tr>
-                                                <th>总计</th>
-                                                <td>47</td>
-                                                <td>53</td>
-                                                <td>100</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                                <div class="confusion-metrics mt-2">
-                                    <ul class="list-unstyled small">
-                                        <li><strong>准确率:</strong> (TP+TN)/(TP+FP+TN+FN) = 0.85</li>
-                                        <li><strong>敏感性:</strong> TP/(TP+FN) = 0.82</li>
-                                        <li><strong>特异性:</strong> TN/(TN+FP) = 0.87</li>
-                                        <li><strong>阳性预测值:</strong> TP/(TP+FP) = 0.87</li>
-                                        <li><strong>阴性预测值:</strong> TN/(TN+FN) = 0.83</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="model-visualization mt-4">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h5>ROC曲线</h5>
-                            <div class="chart-container" id="roc_curve" style="height:300px;"></div>
-                        </div>
-                        <div class="col-md-6">
-                            <h5>预测因素重要性</h5>
-                            <div class="chart-container" id="feature_importance" style="height:300px;"></div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="mt-4 text-end">
-                    <button class="clinical-button secondary" onclick="downloadRiskResults()">
-                        <i class="bi bi-download"></i> 导出风险评估结果
-                    </button>
-                </div>
-            </div>
-        `;
+        // 构建变量选择器HTML
+        let variablesHTML = '';
         
-        container.innerHTML = resultHTML;
-        
-        // 渲染ROC曲线和特征重要性图
-        setTimeout(() => {
-            renderROCCurve();
-            renderFeatureImportance(predictors, coefs.map(Math.abs));
-        }, 50);
-    }
-    
-    // 渲染ROC曲线
-    function renderROCCurve() {
-        try {
-            if (typeof Chart === 'undefined') {
-                console.error('Chart.js未加载');
-                return;
-            }
+        if (continuousVars.length > 0) {
+            variablesHTML += `<div class="variable-category">连续变量</div>
+                             <div class="variable-selector">`;
             
-            const ctx = document.getElementById('roc_curve').getContext('2d');
-            
-            // 生成模拟ROC曲线数据点
-            const fprPoints = [0, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
-            const tprPoints = [0, 0.4, 0.55, 0.7, 0.78, 0.83, 0.88, 0.92, 0.94, 0.96, 0.98, 1.0];
-            
-            // 生成对角线参考数据点
-            const diagPoints = [0, 0.2, 0.4, 0.6, 0.8, 1.0];
-            
-            const rocData = fprPoints.map((fpr, i) => ({
-                x: fpr,
-                y: tprPoints[i]
-            }));
-            
-            const diagData = diagPoints.map(p => ({
-                x: p,
-                y: p
-            }));
-            
-            new Chart(ctx, {
-                type: 'line',
-                data: {
-                    datasets: [
-                        {
-                            label: 'ROC曲线',
-                            data: rocData,
-                            borderColor: 'rgba(54, 162, 235, 1)',
-                            backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                            borderWidth: 2,
-                            pointRadius: 3,
-                            pointHoverRadius: 5,
-                            tension: 0.4,
-                            fill: true
-                        },
-                        {
-                            label: '随机猜测',
-                            data: diagData,
-                            borderColor: 'rgba(128, 128, 128, 0.6)',
-                            backgroundColor: 'rgba(0, 0, 0, 0)',
-                            borderWidth: 1,
-                            pointRadius: 0,
-                            pointHoverRadius: 0,
-                            borderDash: [5, 5]
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        x: {
-                            title: {
-                                display: true,
-                                text: '假阳性率 (1 - 特异性)'
-                            },
-                            min: 0,
-                            max: 1
-                        },
-                        y: {
-                            title: {
-                                display: true,
-                                text: '真阳性率 (敏感性)'
-                            },
-                            min: 0,
-                            max: 1
-                        }
-                    },
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'ROC曲线 (AUC = 0.83)'
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const data = context.dataset.data[context.dataIndex];
-                                    if (context.dataset.label === 'ROC曲线') {
-                                        return `FPR: ${data.x.toFixed(2)}, TPR: ${data.y.toFixed(2)}`;
-                                    } else {
-                                        return context.dataset.label;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+            continuousVars.forEach(variable => {
+                const checkboxName = toolType === 'hypothesis' ? 'hypothesis_variables' : 
+                                    toolType === 'correlation' ? 'correlation_variables' : 'variables';
+                variablesHTML += `<label><input type="checkbox" name="${checkboxName}" value="${variable.id}"> ${variable.name}</label>`;
             });
             
-            // 添加ROC曲线解释
-            const rocInfo = document.createElement('div');
-            rocInfo.className = 'text-center mt-2';
-            rocInfo.innerHTML = `
-                <div class="alert alert-light py-2">
-                    <small>
-                        ROC曲线显示了不同阈值下模型的敏感性和特异性。曲线下面积(AUC)为0.83，表明模型具有良好的区分能力。
-                        AUC接近1表示模型效果越好，接近0.5表示接近随机猜测。
-                    </small>
-                </div>
-            `;
-            document.getElementById('roc_curve').parentNode.appendChild(rocInfo);
-            
-        } catch (error) {
-            console.error('绘制ROC曲线错误:', error);
-            document.getElementById('roc_curve').innerHTML = `
-                <div class="alert alert-danger">
-                    ROC曲线渲染错误: ${error.message}
-                </div>
-            `;
+            variablesHTML += `</div>`;
         }
-    }
-    
-    // 渲染特征重要性图
-    function renderFeatureImportance(features, importances) {
-        try {
-            if (typeof Chart === 'undefined') {
-                console.error('Chart.js未加载');
-                return;
-            }
+        
+        if (categoricalVars.length > 0) {
+            variablesHTML += `<div class="variable-category">分类变量</div>
+                             <div class="variable-selector">`;
             
-            // 特征排序（按重要性降序）
-            const combinedData = features.map((feat, i) => ({
-                feature: feat,
-                importance: importances[i]
-            }));
-            
-            combinedData.sort((a, b) => b.importance - a.importance);
-            
-            const sortedFeatures = combinedData.map(d => d.feature);
-            const sortedImportances = combinedData.map(d => d.importance);
-            
-            const ctx = document.getElementById('feature_importance').getContext('2d');
-            
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: sortedFeatures,
-                    datasets: [{
-                        label: '特征重要性',
-                        data: sortedImportances,
-                        backgroundColor: sortedImportances.map((_, i) => {
-                            const colors = [
-                                'rgba(54, 162, 235, 0.7)',
-                                'rgba(75, 192, 192, 0.7)',
-                                'rgba(153, 102, 255, 0.7)',
-                                'rgba(255, 159, 64, 0.7)',
-                                'rgba(255, 99, 132, 0.7)'
-                            ];
-                            return colors[i % colors.length];
-                        }),
-                        borderColor: sortedImportances.map((_, i) => {
-                            const colors = [
-                                'rgba(54, 162, 235, 1)',
-                                'rgba(75, 192, 192, 1)',
-                                'rgba(153, 102, 255, 1)',
-                                'rgba(255, 159, 64, 1)',
-                                'rgba(255, 99, 132, 1)'
-                            ];
-                            return colors[i % colors.length];
-                        }),
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        x: {
-                            title: {
-                                display: true,
-                                text: '重要性得分 (|系数|)'
-                            },
-                            beginAtZero: true
-                        }
-                    },
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: '预测因素重要性排序'
-                        },
-                        legend: {
-                            display: false
-                        }
-                    }
-                }
+            categoricalVars.forEach(variable => {
+                const checkboxName = toolType === 'hypothesis' ? 'hypothesis_variables' : 
+                                    toolType === 'correlation' ? 'correlation_variables' : 'variables';
+                variablesHTML += `<label><input type="checkbox" name="${checkboxName}" value="${variable.id}"> ${variable.name}</label>`;
             });
             
-            // 添加特征重要性解释
-            const featureInfo = document.createElement('div');
-            featureInfo.className = 'text-center mt-2';
-            featureInfo.innerHTML = `
-                <div class="alert alert-light py-2">
-                    <small>
-                        特征重要性图显示了各预测因素对模型的相对重要程度。
-                        柱长表示系数绝对值，越大表示该因素对预测结果的影响越大。
-                    </small>
-                </div>
-            `;
-            document.getElementById('feature_importance').parentNode.appendChild(featureInfo);
-            
-        } catch (error) {
-            console.error('绘制特征重要性图错误:', error);
-            document.getElementById('feature_importance').innerHTML = `
-                <div class="alert alert-danger">
-                    特征重要性图渲染错误: ${error.message}
-                </div>
-            `;
+            variablesHTML += `</div>`;
         }
-    }
-    
-    // 获取模型类型名称
-    function getModelTypeName(modelType) {
-        const modelNames = {
-            'logistic': 'Logistic回归',
-            'decision_tree': '决策树',
-            'random_forest': '随机森林',
-            'xgboost': 'XGBoost'
-        };
         
-        return modelNames[modelType] || modelType;
-    }
-    
-    // 下载风险评估结果
-    function downloadRiskResults() {
-        alert('风险评估结果下载功能正在开发中，敬请期待');
-    }
+        // 如果没有变量
+        if (variables.length === 0) {
+            variablesHTML = `<div class="alert alert-info">该数据集没有可用的变量</div>`;
+        }
+        
+        // 更新变量容器
+        variablesContainer.innerHTML = variablesHTML;
+        
+        // 如果是假设检验，还需要更新分组变量下拉列表
+        if (toolType === 'hypothesis') {
+            const groupVarSelect = document.getElementById('group-variable');
+            if (groupVarSelect) {
+                // 清除现有选项
+                while (groupVarSelect.options.length > 1) {
+                    groupVarSelect.remove(1);
+                }
+                
+                // 添加分类变量作为分组变量选项
+                categoricalVars.forEach(variable => {
+                    const option = document.createElement('option');
+                    option.value = variable.id;
+                    option.textContent = variable.name;
+                    groupVarSelect.appendChild(option);
+                });
+            }
+        }
+    })
+    .catch(error => {
+        console.error('加载变量失败，使用模拟数据:', error);
+        
+        // 使用模拟数据
+        let mockVariables;
+        
+        // 根据工具类型使用不同的模拟数据
+        if (toolType === 'descriptive') {
+            mockVariables = [
+                { id: 'age', name: '年龄', type: 'continuous' },
+                { id: 'bmi', name: 'BMI', type: 'continuous' },
+                { id: 'glucose', name: '血糖', type: 'continuous' },
+                { id: 'bp', name: '血压', type: 'continuous' },
+                { id: 'gender', name: '性别', type: 'categorical' },
+                { id: 'smoking', name: '吸烟史', type: 'categorical' },
+                { id: 'diabetes', name: '糖尿病', type: 'categorical' }
+            ];
+        } else if (toolType === 'hypothesis') {
+            mockVariables = [
+                { id: 'age', name: '年龄', type: 'continuous' },
+                { id: 'bmi', name: 'BMI', type: 'continuous' },
+                { id: 'glucose', name: '血糖', type: 'continuous' },
+                { id: 'bp', name: '血压', type: 'continuous' },
+                { id: 'gender', name: '性别', type: 'categorical' },
+                { id: 'smoking', name: '吸烟史', type: 'categorical' },
+                { id: 'diabetes', name: '糖尿病', type: 'categorical' },
+                { id: 'treatment', name: '治疗方案', type: 'categorical' }
+            ];
+        } else if (toolType === 'correlation') {
+            mockVariables = [
+                { id: 'age', name: '年龄', type: 'continuous' },
+                { id: 'bmi', name: 'BMI', type: 'continuous' },
+                { id: 'glucose', name: '血糖', type: 'continuous' },
+                { id: 'bp', name: '血压', type: 'continuous' },
+                { id: 'cholesterol', name: '胆固醇', type: 'continuous' },
+                { id: 'hdl', name: 'HDL', type: 'continuous' },
+                { id: 'ldl', name: 'LDL', type: 'continuous' },
+                { id: 'gender', name: '性别', type: 'categorical' }
+            ];
+        } else {
+            mockVariables = [
+                { id: 'age', name: '年龄', type: 'continuous' },
+                { id: 'bmi', name: 'BMI', type: 'continuous' },
+                { id: 'gender', name: '性别', type: 'categorical' }
+            ];
+        }
+        
+        // 分类变量
+        let continuousVars = mockVariables.filter(v => v.type === 'continuous');
+        let categoricalVars = mockVariables.filter(v => v.type === 'categorical');
+        
+        // 构建变量选择器HTML
+        let variablesHTML = '';
+        
+        if (continuousVars.length > 0) {
+            variablesHTML += `<div class="variable-category">连续变量</div>
+                             <div class="variable-selector">`;
+            
+            continuousVars.forEach(variable => {
+                const checkboxName = toolType === 'hypothesis' ? 'hypothesis_variables' : 
+                                    toolType === 'correlation' ? 'correlation_variables' : 'variables';
+                variablesHTML += `<label><input type="checkbox" name="${checkboxName}" value="${variable.id}"> ${variable.name}</label>`;
+            });
+            
+            variablesHTML += `</div>`;
+        }
+        
+        if (categoricalVars.length > 0) {
+            variablesHTML += `<div class="variable-category">分类变量</div>
+                             <div class="variable-selector">`;
+            
+            categoricalVars.forEach(variable => {
+                const checkboxName = toolType === 'hypothesis' ? 'hypothesis_variables' : 
+                                    toolType === 'correlation' ? 'correlation_variables' : 'variables';
+                variablesHTML += `<label><input type="checkbox" name="${checkboxName}" value="${variable.id}"> ${variable.name}</label>`;
+            });
+            
+            variablesHTML += `</div>`;
+        }
+        
+        // 更新变量容器
+        variablesContainer.innerHTML = variablesHTML;
+        
+        // 如果是假设检验，还需要更新分组变量下拉列表
+        if (toolType === 'hypothesis') {
+            const groupVarSelect = document.getElementById('group-variable');
+            if (groupVarSelect) {
+                // 清除现有选项
+                while (groupVarSelect.options.length > 1) {
+                    groupVarSelect.remove(1);
+                }
+                
+                // 添加分类变量作为分组变量选项
+                categoricalVars.forEach(variable => {
+                    const option = document.createElement('option');
+                    option.value = variable.id;
+                    option.textContent = variable.name;
+                    groupVarSelect.appendChild(option);
+                });
+            }
+        }
     });
+}
 </script>
+{% endblock %}
+    
 {% endblock %} 

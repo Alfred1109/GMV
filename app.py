@@ -5434,6 +5434,79 @@ def preview_import_data():
             'message': f'预览导入数据时出错: {str(e)}'
         }), 500
 
+# 添加一个测试API端点，直接返回数据集变量
+@app.route('/api/test/datasets/<int:dataset_id>/variables', methods=['GET'])
+def test_get_dataset_variables(dataset_id):
+    """测试API：获取数据集的变量信息，用于分析工具
+    
+    Args:
+        dataset_id: 数据集ID
+        
+    Returns:
+        包含变量信息的JSON响应，格式适合分析工具使用
+    """
+    try:
+        # 直接从数据库获取数据集
+        dataset = DataSet.query.get(dataset_id)
+        
+        if not dataset:
+            return jsonify({
+                'success': False,
+                'message': '数据集不存在'
+            }), 404
+        
+        # 获取自定义字段
+        custom_fields = []
+        if dataset.custom_fields:
+            try:
+                custom_fields = json.loads(dataset.custom_fields)
+            except json.JSONDecodeError:
+                custom_fields = []
+        
+        # 转换字段格式，适应分析工具需要的格式
+        variables = []
+        for field in custom_fields:
+            field_type = field.get('type', '').lower()
+            variable_type = 'continuous'  # 默认为连续型变量
+            
+            # 根据字段类型决定变量类型
+            if field_type in ['select', 'checkbox', 'radio', 'boolean']:
+                variable_type = 'categorical'
+            elif field_type in ['number', 'float', 'integer']:
+                variable_type = 'continuous'
+            elif field_type in ['date', 'datetime', 'time']:
+                variable_type = 'temporal'
+            elif field_type in ['text', 'string']:
+                variable_type = 'text'
+            
+            variables.append({
+                'id': field.get('name', ''),
+                'name': field.get('name', ''),
+                'type': variable_type,
+                'description': field.get('description', ''),
+                'range': field.get('range', ''),
+                'unit': '',  # 默认单位为空
+                'is_required': 'required' in field.get('properties', '').lower()
+            })
+        
+        # 返回适合分析工具的变量格式
+        return jsonify({
+            'success': True,
+            'dataset': {
+                'id': dataset.id,
+                'name': dataset.name,
+                'description': dataset.description
+            },
+            'variables': variables
+        })
+                
+    except Exception as e:
+        print(f"测试API获取数据集变量失败: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'获取数据集变量失败: {str(e)}'
+        }), 500
+
 if __name__ == '__main__':
     import os
     port = int(os.environ.get('FLASK_RUN_PORT', 6000))
