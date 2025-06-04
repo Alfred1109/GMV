@@ -19,8 +19,6 @@ from datetime import datetime, timedelta
 from flask_cors import CORS
 from sqlalchemy import func
 import math
-from app_risk import setup_risk_assessment_api
-from app_outcome import setup_outcome_prediction_api
 
 # Load environment variables
 load_dotenv()
@@ -6994,10 +6992,6 @@ def perform_cox_regression(data, time_variable, event_variable, covariates, grou
         results['group_survival'] = group_results
     
     return results
-# 初始化风险评估API和结局预测API
-setup_risk_assessment_api(app, csrf)
-setup_outcome_prediction_api(app, csrf)
-
 
 if __name__ == '__main__':
     import os
@@ -7017,6 +7011,4 @@ if __name__ == '__main__':
             app.run(debug=True, port=alt_port, host=host)
         except Exception as e:
             print(f"备用端口也失败: {e}")
-            print("请检查网络设置或手动指定可用端口。")# 注册高级可视化模块蓝图
-from app.routes.advanced_visualization import advanced_viz_bp
-app.register_blueprint(advanced_viz_bp)
+            print("请检查网络设置或手动指定可用端口。")

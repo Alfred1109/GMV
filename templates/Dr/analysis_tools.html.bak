@@ -2254,7 +2254,7 @@ function loadDatasetVariables(datasetId, toolType) {
 }
 
 // 添加假设检验表单提交处理
-function setupAllForms() {
+document.addEventListener('DOMContentLoaded', function() {
     const hypothesisForm = document.getElementById('hypothesisForm');
     if (hypothesisForm) {
         hypothesisForm.addEventListener('submit', function(e) {
@@ -2408,8 +2408,7 @@ function setupAllForms() {
             });
         }
     }
-}
-
+    
     // 添加相关性分析表单提交处理
     const correlationForm = document.getElementById('correlationForm');
     if (correlationForm) {
@@ -3533,43 +3532,40 @@ function setupAllForms() {
                     '<canvas id="chartCanvas"></canvas>' +
                     '</div>';
                 
-                // 先设置HTML内容
-                resultPreview.innerHTML = chartHTML;
+                // 将图表数据添加到HTML中
+                chartHTML += '<script>' +
+                    'document.addEventListener("DOMContentLoaded", function() {' +
+                    'const chartCanvas = document.getElementById("chartCanvas");' +
+                    'const chartData = ' + JSON.stringify(data.chart_data) + ';' +
+                    'const chartType = "' + chartType + '";' +
+                    
+                    '// 根据图表类型生成图表' +
+                    'switch(chartType) {' +
+                    'case "bar":' +
+                    'generateBarChart(chartCanvas, chartData);' +
+                    'break;' +
+                    'case "line":' +
+                    'generateLineChart(chartCanvas, chartData);' +
+                    'break;' +
+                    'case "scatter":' +
+                    'generateScatterPlot(chartCanvas, chartData);' +
+                    'break;' +
+                    'case "pie":' +
+                    'generatePieChart(chartCanvas, chartData);' +
+                    'break;' +
+                    'case "box":' +
+                    'generateBoxPlot(chartCanvas, chartData);' +
+                    'break;' +
+                    'case "heatmap":' +
+                    'generateHeatmap(chartCanvas, chartData);' +
+                    'break;' +
+                    'default:' +
+                    'console.error("不支持的图表类型:", chartType);' +
+                    '}' +
+                    '});' +
+                    '</script>';
                 
-                // 然后使用DOM API创建和添加脚本，而不是字符串拼接
-                const script = document.createElement('script');
-                script.textContent = `
-                    document.addEventListener("DOMContentLoaded", function() {
-                        const chartCanvas = document.getElementById("chartCanvas");
-                        const chartData = ${JSON.stringify(data.chart_data)};
-                        const chartType = "${chartType}";
-                        
-                        // 根据图表类型生成图表
-                        switch(chartType) {
-                            case "bar":
-                                generateBarChart(chartCanvas, chartData);
-                                break;
-                            case "line":
-                                generateLineChart(chartCanvas, chartData);
-                                break;
-                            case "scatter":
-                                generateScatterPlot(chartCanvas, chartData);
-                                break;
-                            case "pie":
-                                generatePieChart(chartCanvas, chartData);
-                                break;
-                            case "box":
-                                generateBoxPlot(chartCanvas, chartData);
-                                break;
-                            case "heatmap":
-                                generateHeatmap(chartCanvas, chartData);
-                                break;
-                            default:
-                                console.error("不支持的图表类型:", chartType);
-                        }
-                    });
-                `;
-                resultPreview.appendChild(script);
+                resultPreview.innerHTML = chartHTML;
             })
             .catch(error => {
                 console.error('生成图表失败:', error);
@@ -3676,7 +3672,7 @@ function setupAllForms() {
             });
         }
     }
-}
+});
 
     // 获取检验类型的显示名称
     function getTestTypeDisplayName(testType) {
@@ -3704,11 +3700,6 @@ function setupAllForms() {
             return 'p = ' + pValue.toFixed(3);
         }
     }
-
-    // 调用设置所有表单的函数
-    setupAllForms();
-    
-}); // 这是DOMContentLoaded事件处理函数的结束
 </script>
 <!-- 引入分析工具交互功能脚本 -->
 <script src="{{ url_for('static', filename='js/analysis_tools.js') }}"></script>

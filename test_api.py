@@ -5,7 +5,7 @@ import json
 base_url = 'http://localhost:80'
 dataset_id = 1  # 使用第一个数据集
 
-# 测试获取数据集变量API
+# 测试获取数据集变量API - 使用不需要登录的测试API
 variables_url = f'{base_url}/api/test/datasets/{dataset_id}/variables'
 response = requests.get(variables_url)
 print(f"获取变量API状态码: {response.status_code}")
